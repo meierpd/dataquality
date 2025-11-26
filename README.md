@@ -6,13 +6,13 @@ This project provides an automated way to validate Excel files submitted by inst
 
 ## Features
 
-* Process multiple Excel files with institute identifiers.
-* Automatic versioning based on file hashes.
-* Flexible rule system implemented as Python functions.
-* One row per check result stored in the database.
-* Regenerable outputs, including a forced reprocessing option.
-* Fixed-format Excel report generation per institute.
-* Power BI-ready denormalized result table.
+* **File Processing & Caching**: SHA-256 hash-based caching to avoid reprocessing identical files
+* **Automatic Versioning**: Version assignment per institute based on file content changes
+* **Modular Check System**: Extensible Python-based quality checks with simple registration
+* **Database Output**: Denormalized qc_results table ready for MSSQL storage
+* **Force Reprocess Mode**: Option to reprocess files regardless of cache status
+* **ORSADocumentSourcer Integration**: Direct integration with document sourcing system
+* **Comprehensive Testing**: Full unit test coverage for all modules
 
 ## Architecture
 
@@ -45,21 +45,81 @@ project/
   README.md
 ```
 
+## Installation
+
+```bash
+pip install -r requirements.txt
+```
+
+## Usage
+
+### As a Library with ORSADocumentSourcer
+
+```python
+from dataquality.core.processor import DocumentProcessor
+from dataquality.core.db import InMemoryDatabaseWriter
+
+# Initialize components
+db_writer = InMemoryDatabaseWriter()
+processor = DocumentProcessor(db_writer, force_reprocess=False)
+
+# Process documents from ORSADocumentSourcer
+sourcer = ORSADocumentSourcer(username="user", password="pass")
+documents = sourcer.load()  # Returns List[Tuple[str, Path]]
+
+# Process all documents
+results = processor.process_documents(documents)
+
+# Get processing summary
+summary = processor.get_processing_summary()
+print(f"Total files: {summary['total_files']}")
+print(f"Pass rate: {summary['pass_rate']}")
+
+# Access stored results
+all_results = db_writer.get_results()
+```
+
+### Command Line Interface
+
+```bash
+# Process all Excel files in a directory
+python -m dataquality.main /path/to/excel/files
+
+# Force reprocess all files
+python -m dataquality.main /path/to/excel/files --force
+
+# Verbose logging
+python -m dataquality.main /path/to/excel/files --verbose
+```
+
 ## Adding a New Check
 
 To add a check, open `checks/rules.py` and define a new function:
 
 ```python
-from openpyxl import Workbook
+from openpyxl.workbook.workbook import Workbook
+from typing import Optional, Tuple
 
-def check_example(wb: Workbook):
+def check_example(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+    """Your custom check logic.
+    
+    Args:
+        wb: Workbook to check
+        
+    Returns:
+        Tuple of (outcome, numeric_value, description)
+    """
     desc = "Example description"
     outcome = True
-    value = None
+    value = 42.0  # Optional numeric outcome
     return outcome, value, desc
 ```
 
-Then add the function to the `REGISTERED_CHECKS` list in the same file.
+Then add the function to the `REGISTERED_CHECKS` list in the same file:
+
+```python
+REGISTERED_CHECKS.append(("example_check", check_example))
+```
 
 ## Database Schema
 
@@ -101,3 +161,94 @@ For each institute, an Excel sheet is generated based on a template. Columns inc
 ## Power BI
 
 Power BI connects directly to `qc_results`, which already contains all metadata required for aggregated views.
+
+## Testing
+
+Run the comprehensive test suite:
+
+```bash
+# Run all tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run with coverage report
+pytest --cov=dataquality --cov-report=html
+```
+
+All modules have full unit test coverage:
+- `tests/test_reader.py` - ExcelReader tests
+- `tests/test_versioning.py` - VersionManager tests
+- `tests/test_db.py` - Database writer tests
+- `tests/test_rules.py` - Check function tests
+- `tests/test_processor.py` - DocumentProcessor integration tests
+
+## Module Documentation
+
+### core/reader.py
+`ExcelReader` class for loading Excel files with openpyxl.
+- `load_file(path)` - Loads an Excel file
+- `get_sheet_names(workbook)` - Gets list of sheet names
+- `close_workbook(workbook)` - Closes the workbook
+
+### core/versioning.py
+`VersionManager` handles file hashing and version assignment.
+- `compute_file_hash(path)` - Computes SHA-256 hash
+- `get_version(institute_id, path)` - Gets or assigns version
+- `is_processed(institute_id, hash)` - Checks if file was processed
+- `load_existing_versions(data)` - Loads cache from database
+
+### core/db.py
+Database models and writers.
+- `CheckResult` - Dataclass for check results
+- `DatabaseWriter` - Abstract base class for DB operations
+- `InMemoryDatabaseWriter` - In-memory implementation
+
+### core/processor.py
+`DocumentProcessor` orchestrates the processing workflow.
+- `process_file(institute_id, path)` - Processes single file
+- `process_documents(documents)` - Batch processing
+- `should_process_file(institute_id, path)` - Cache check
+- `get_processing_summary()` - Get statistics
+
+### checks/rules.py
+Quality check registry with pre-built checks:
+- `check_has_sheets` - Verify workbook has sheets
+- `check_no_empty_sheets` - Verify no empty sheets
+- `check_first_sheet_has_data` - Verify A1 has data
+- `check_sheet_names_unique` - Verify unique sheet names
+- `check_row_count_reasonable` - Verify row count limits
+- `check_has_expected_headers` - Verify headers exist
+- `check_no_merged_cells` - Detect merged cells
+
+## Integration Notes
+
+### ORSADocumentSourcer Output Format
+The processor expects `List[Tuple[str, Path]]` from `sourcer.load()`:
+```python
+[
+    ("INST001_report.xlsx", Path("/path/to/file1.xlsx")),
+    ("INST002_report.xlsx", Path("/path/to/file2.xlsx")),
+]
+```
+
+### Institute ID Extraction
+By default, extracts ID from filename before first `_`, `-`, or space.
+Override `DocumentProcessor._extract_institute_id()` for custom logic.
+
+### Custom Database Writer
+Implement `DatabaseWriter` for your database backend:
+
+```python
+from dataquality.core.db import DatabaseWriter
+
+class SQLDatabaseWriter(DatabaseWriter):
+    def write_results(self, results):
+        # Write to SQL database
+        return len(results)
+    
+    def get_existing_versions(self):
+        # Query existing versions
+        return query_results
+```
