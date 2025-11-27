@@ -11,6 +11,7 @@ from orsa_analysis.checks.rules import (
     check_row_count_reasonable,
     check_has_expected_headers,
     check_no_merged_cells,
+    check_sst_three_years_filled,
     get_all_checks,
     run_check,
 )
@@ -223,6 +224,134 @@ class TestGetAllChecks:
         assert "has_sheets" in check_names
         assert "no_empty_sheets" in check_names
         assert "first_sheet_has_data" in check_names
+
+
+class TestCheckSSTThreeYearsFilled:
+    """Test cases for check_sst_three_years_filled."""
+
+    def test_sst_all_cells_filled_german(self):
+        """Test SST check passes when all cells are filled (German)."""
+        wb = Workbook()
+        wb.remove(wb.active)
+        sheet = wb.create_sheet("Ergebnisse_AVO-FINMA")
+        
+        # Fill all required cells
+        for row in [42, 43, 45]:
+            for col in ["E", "F", "G"]:
+                sheet[f"{col}{row}"] = 100.0
+        
+        outcome, value, description = check_sst_three_years_filled(wb)
+        
+        assert outcome is True
+        assert value == 0.0
+        assert "filled in for three years" in description
+
+    def test_sst_all_cells_filled_english(self):
+        """Test SST check passes when all cells are filled (English)."""
+        wb = Workbook()
+        wb.remove(wb.active)
+        sheet = wb.create_sheet("Results_ISO-FINMA")
+        
+        # Fill all required cells
+        for row in [42, 43, 45]:
+            for col in ["E", "F", "G"]:
+                sheet[f"{col}{row}"] = 100.0
+        
+        outcome, value, description = check_sst_three_years_filled(wb)
+        
+        assert outcome is True
+        assert value == 0.0
+        assert "filled in for three years" in description
+
+    def test_sst_all_cells_filled_french(self):
+        """Test SST check passes when all cells are filled (French)."""
+        wb = Workbook()
+        wb.remove(wb.active)
+        sheet = wb.create_sheet("Résultats_OS-FINMA")
+        
+        # Fill all required cells
+        for row in [42, 43, 45]:
+            for col in ["E", "F", "G"]:
+                sheet[f"{col}{row}"] = 100.0
+        
+        outcome, value, description = check_sst_three_years_filled(wb)
+        
+        assert outcome is True
+        assert value == 0.0
+        assert "filled in for three years" in description
+
+    def test_sst_some_cells_empty(self):
+        """Test SST check fails when some cells are empty."""
+        wb = Workbook()
+        wb.remove(wb.active)
+        sheet = wb.create_sheet("Ergebnisse_AVO-FINMA")
+        
+        # Fill only some cells
+        sheet["E42"] = 100.0
+        sheet["F42"] = 100.0
+        # Leave G42, E43, F43, G43, E45, F45, G45 empty
+        
+        outcome, value, description = check_sst_three_years_filled(wb)
+        
+        assert outcome is False
+        assert value == 7.0  # 7 empty cells out of 9
+        assert "not filled in for three years" in description
+
+    def test_sst_all_cells_empty(self):
+        """Test SST check fails when all cells are empty."""
+        wb = Workbook()
+        wb.remove(wb.active)
+        wb.create_sheet("Ergebnisse_AVO-FINMA")
+        
+        outcome, value, description = check_sst_three_years_filled(wb)
+        
+        assert outcome is False
+        assert value == 9.0  # All 9 cells empty
+        assert "not filled in for three years" in description
+
+    def test_sst_sheet_not_found(self):
+        """Test SST check fails when sheet is not found."""
+        wb = Workbook()
+        
+        outcome, value, description = check_sst_three_years_filled(wb)
+        
+        assert outcome is False
+        assert value is None
+        assert "not found" in description
+
+    def test_sst_empty_strings_treated_as_empty(self):
+        """Test SST check treats empty strings as empty cells."""
+        wb = Workbook()
+        wb.remove(wb.active)
+        sheet = wb.create_sheet("Ergebnisse_AVO-FINMA")
+        
+        # Fill with empty strings
+        for row in [42, 43, 45]:
+            for col in ["E", "F", "G"]:
+                sheet[f"{col}{row}"] = ""
+        
+        outcome, value, description = check_sst_three_years_filled(wb)
+        
+        assert outcome is False
+        assert value == 9.0
+        assert "not filled in for three years" in description
+
+    def test_sst_whitespace_strings_treated_as_empty(self):
+        """Test SST check treats whitespace strings as empty cells."""
+        wb = Workbook()
+        wb.remove(wb.active)
+        sheet = wb.create_sheet("Ergebnisse_AVO-FINMA")
+        
+        # Fill with whitespace strings
+        for row in [42, 43, 45]:
+            for col in ["E", "F", "G"]:
+                sheet[f"{col}{row}"] = "   "
+        
+        outcome, value, description = check_sst_three_years_filled(wb)
+        
+        assert outcome is False
+        assert value == 9.0
+        assert "not filled in for three years" in description
 
 
 class TestRunCheck:
