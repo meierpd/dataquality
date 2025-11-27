@@ -1,15 +1,15 @@
-"""Tests for CheckMapper class."""
+"""Tests for CheckToCellMapper class."""
 
 import pytest
-from orsa_analysis.reporting.check_mapper import CheckMapper, CHECK_MAPPINGS
+from orsa_analysis.reporting.check_to_cell_mapper import CheckToCellMapper, CHECK_MAPPINGS
 
 
-class TestCheckMapperInitialization:
-    """Test CheckMapper initialization."""
+class TestCheckToCellMapperInitialization:
+    """Test CheckToCellMapper initialization."""
     
     def test_init_with_defaults(self):
         """Test initialization with default mappings."""
-        mapper = CheckMapper()
+        mapper = CheckToCellMapper()
         assert mapper.mappings == CHECK_MAPPINGS
     
     def test_init_with_custom_mappings(self):
@@ -17,7 +17,7 @@ class TestCheckMapperInitialization:
         custom = {
             "test_check": ("Sheet1", "A1", "bool")
         }
-        mapper = CheckMapper(custom)
+        mapper = CheckToCellMapper(custom)
         assert mapper.mappings == custom
 
 
@@ -26,12 +26,12 @@ class TestHasMapping:
     
     def test_has_mapping_true(self):
         """Test has_mapping returns True for existing check."""
-        mapper = CheckMapper({"test_check": ("Sheet1", "A1", "bool")})
+        mapper = CheckToCellMapper({"test_check": ("Sheet1", "A1", "bool")})
         assert mapper.has_mapping("test_check") is True
     
     def test_has_mapping_false(self):
         """Test has_mapping returns False for non-existing check."""
-        mapper = CheckMapper({})
+        mapper = CheckToCellMapper({})
         assert mapper.has_mapping("nonexistent") is False
 
 
@@ -40,7 +40,7 @@ class TestGetCellLocation:
     
     def test_get_cell_location_exists(self):
         """Test getting cell location for existing check."""
-        mapper = CheckMapper({"test_check": ("Sheet1", "A1", "bool")})
+        mapper = CheckToCellMapper({"test_check": ("Sheet1", "A1", "bool")})
         location = mapper.get_cell_location("test_check")
         
         assert location is not None
@@ -48,7 +48,7 @@ class TestGetCellLocation:
     
     def test_get_cell_location_not_exists(self):
         """Test getting cell location for non-existing check."""
-        mapper = CheckMapper({})
+        mapper = CheckToCellMapper({})
         location = mapper.get_cell_location("nonexistent")
         assert location is None
 
@@ -58,7 +58,7 @@ class TestGetValueFromResult:
     
     def test_bool_value_fulfilled(self):
         """Test extracting bool value when check is fulfilled (1)."""
-        mapper = CheckMapper()
+        mapper = CheckToCellMapper()
         result = {"outcome_bool": 1, "outcome_numeric": None}
         
         value = mapper.get_value_from_result(result, "Sheet1", "A1", "bool")
@@ -66,7 +66,7 @@ class TestGetValueFromResult:
     
     def test_bool_value_not_fulfilled(self):
         """Test extracting bool value when check is not fulfilled (0)."""
-        mapper = CheckMapper()
+        mapper = CheckToCellMapper()
         result = {"outcome_bool": 0, "outcome_numeric": None}
         
         value = mapper.get_value_from_result(result, "Sheet1", "A1", "bool")
@@ -74,7 +74,7 @@ class TestGetValueFromResult:
     
     def test_metric_value(self):
         """Test extracting metric value."""
-        mapper = CheckMapper()
+        mapper = CheckToCellMapper()
         result = {"outcome_bool": 1, "outcome_numeric": 42.5}
         
         value = mapper.get_value_from_result(result, "Sheet1", "A1", "metric")
@@ -82,7 +82,7 @@ class TestGetValueFromResult:
     
     def test_metric_value_none(self):
         """Test extracting metric value when it's None."""
-        mapper = CheckMapper()
+        mapper = CheckToCellMapper()
         result = {"outcome_bool": 1, "outcome_numeric": None}
         
         value = mapper.get_value_from_result(result, "Sheet1", "A1", "metric")
@@ -90,7 +90,7 @@ class TestGetValueFromResult:
     
     def test_unknown_value_type(self):
         """Test extracting value with unknown type returns None."""
-        mapper = CheckMapper()
+        mapper = CheckToCellMapper()
         result = {"outcome_bool": 1, "outcome_numeric": 42}
         
         value = mapper.get_value_from_result(result, "Sheet1", "A1", "unknown")
@@ -102,7 +102,7 @@ class TestAddMapping:
     
     def test_add_new_mapping(self):
         """Test adding a new mapping."""
-        mapper = CheckMapper({})
+        mapper = CheckToCellMapper({})
         mapper.add_mapping("new_check", "Sheet2", "B5", "bool")
         
         assert mapper.has_mapping("new_check")
@@ -110,7 +110,7 @@ class TestAddMapping:
     
     def test_update_existing_mapping(self):
         """Test updating an existing mapping."""
-        mapper = CheckMapper({"test_check": ("Sheet1", "A1", "bool")})
+        mapper = CheckToCellMapper({"test_check": ("Sheet1", "A1", "bool")})
         mapper.add_mapping("test_check", "Sheet2", "B5", "metric")
         
         assert mapper.get_cell_location("test_check") == ("Sheet2", "B5", "metric")
@@ -121,7 +121,7 @@ class TestGetMappedChecks:
     
     def test_get_mapped_checks_empty(self):
         """Test getting checks when no mappings exist."""
-        mapper = CheckMapper({})
+        mapper = CheckToCellMapper({})
         checks = mapper.get_mapped_checks()
         assert checks == []
     
@@ -131,7 +131,7 @@ class TestGetMappedChecks:
             "check1": ("Sheet1", "A1", "bool"),
             "check2": ("Sheet1", "A2", "metric"),
         }
-        mapper = CheckMapper(mappings)
+        mapper = CheckToCellMapper(mappings)
         checks = mapper.get_mapped_checks()
         
         assert len(checks) == 2

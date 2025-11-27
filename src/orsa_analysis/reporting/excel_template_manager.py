@@ -11,7 +11,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 logger = logging.getLogger(__name__)
 
 
-class TemplateManager:
+class ExcelTemplateManager:
     """Manages Excel template operations for report generation.
     
     This manager uses a simple approach:

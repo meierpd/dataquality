@@ -1,11 +1,11 @@
-"""Tests for TemplateManager class."""
+"""Tests for ExcelTemplateManager class."""
 
 import pytest
 from pathlib import Path
 import openpyxl
 from openpyxl.workbook.workbook import Workbook
 
-from orsa_analysis.reporting.template_manager import TemplateManager
+from orsa_analysis.reporting.excel_template_manager import ExcelTemplateManager
 
 
 @pytest.fixture
@@ -48,19 +48,19 @@ def temp_source_file(tmp_path):
     return source_path
 
 
-class TestTemplateManagerInitialization:
-    """Test TemplateManager initialization."""
+class TestExcelTemplateManagerInitialization:
+    """Test ExcelTemplateManager initialization."""
     
     def test_init_with_valid_template(self, temp_template_file):
         """Test initialization with valid template file."""
-        manager = TemplateManager(temp_template_file)
+        manager = ExcelTemplateManager(temp_template_file)
         assert manager.template_path == temp_template_file
     
     def test_init_with_nonexistent_template(self, tmp_path):
         """Test initialization with non-existent template raises error."""
         nonexistent = tmp_path / "nonexistent.xlsx"
         with pytest.raises(FileNotFoundError):
-            TemplateManager(nonexistent)
+            ExcelTemplateManager(nonexistent)
 
 
 class TestOutputWorkbookCreation:
@@ -68,7 +68,7 @@ class TestOutputWorkbookCreation:
     
     def test_create_output_workbook(self, temp_template_file, temp_source_file):
         """Test creating output workbook from source file with template prepended."""
-        manager = TemplateManager(temp_template_file)
+        manager = ExcelTemplateManager(temp_template_file)
         wb = manager.create_output_workbook(temp_source_file)
         
         assert isinstance(wb, Workbook)
@@ -85,7 +85,7 @@ class TestOutputWorkbookCreation:
     
     def test_create_output_workbook_nonexistent_source(self, temp_template_file, tmp_path):
         """Test creating output workbook with non-existent source file raises error."""
-        manager = TemplateManager(temp_template_file)
+        manager = ExcelTemplateManager(temp_template_file)
         nonexistent = tmp_path / "nonexistent.xlsx"
         
         with pytest.raises(FileNotFoundError):
@@ -93,7 +93,7 @@ class TestOutputWorkbookCreation:
     
     def test_create_output_preserves_template_content(self, temp_template_file, temp_source_file):
         """Test that template content is preserved in output."""
-        manager = TemplateManager(temp_template_file)
+        manager = ExcelTemplateManager(temp_template_file)
         wb = manager.create_output_workbook(temp_source_file)
         
         # Check template content is preserved
@@ -102,7 +102,7 @@ class TestOutputWorkbookCreation:
     
     def test_create_output_preserves_source_content(self, temp_template_file, temp_source_file):
         """Test that source content is preserved in output."""
-        manager = TemplateManager(temp_template_file)
+        manager = ExcelTemplateManager(temp_template_file)
         wb = manager.create_output_workbook(temp_source_file)
         
         # Check source content is preserved
@@ -115,7 +115,7 @@ class TestCellOperations:
     
     def test_write_cell_value_success(self, temp_template_file, temp_source_file):
         """Test writing value to cell."""
-        manager = TemplateManager(temp_template_file)
+        manager = ExcelTemplateManager(temp_template_file)
         manager.create_output_workbook(temp_source_file)
         
         success = manager.write_cell_value("Auswertung", "C8", "New Value")
@@ -124,7 +124,7 @@ class TestCellOperations:
     
     def test_write_cell_value_nonexistent_sheet(self, temp_template_file, temp_source_file):
         """Test writing to non-existent sheet returns False."""
-        manager = TemplateManager(temp_template_file)
+        manager = ExcelTemplateManager(temp_template_file)
         manager.create_output_workbook(temp_source_file)
         
         success = manager.write_cell_value("NonExistent", "A1", "Value")
@@ -132,13 +132,13 @@ class TestCellOperations:
     
     def test_write_cell_value_no_workbook(self, temp_template_file):
         """Test writing without creating workbook returns False."""
-        manager = TemplateManager(temp_template_file)
+        manager = ExcelTemplateManager(temp_template_file)
         success = manager.write_cell_value("Auswertung", "A1", "Value")
         assert success is False
     
     def test_write_cell_value_various_types(self, temp_template_file, temp_source_file):
         """Test writing various data types to cells."""
-        manager = TemplateManager(temp_template_file)
+        manager = ExcelTemplateManager(temp_template_file)
         manager.create_output_workbook(temp_source_file)
         
         # Test different value types
@@ -162,7 +162,7 @@ class TestWorkbookSaving:
     
     def test_save_workbook_success(self, temp_template_file, temp_source_file, tmp_path):
         """Test saving workbook to file."""
-        manager = TemplateManager(temp_template_file)
+        manager = ExcelTemplateManager(temp_template_file)
         manager.create_output_workbook(temp_source_file)
         
         output_path = tmp_path / "output.xlsx"
@@ -178,7 +178,7 @@ class TestWorkbookSaving:
     
     def test_save_workbook_creates_directory(self, temp_template_file, temp_source_file, tmp_path):
         """Test that save creates output directory if it doesn't exist."""
-        manager = TemplateManager(temp_template_file)
+        manager = ExcelTemplateManager(temp_template_file)
         manager.create_output_workbook(temp_source_file)
         
         output_path = tmp_path / "subdir" / "output.xlsx"
@@ -193,7 +193,7 @@ class TestWorkbookClosing:
     
     def test_close_workbook(self, temp_template_file, temp_source_file):
         """Test closing workbook."""
-        manager = TemplateManager(temp_template_file)
+        manager = ExcelTemplateManager(temp_template_file)
         manager.create_output_workbook(temp_source_file)
         
         assert manager.output_wb is not None

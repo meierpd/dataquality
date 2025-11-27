@@ -13,7 +13,7 @@ CHECK_MAPPINGS: Dict[str, Tuple[str, str, str]] = {
 }
 
 
-class CheckMapper:
+class CheckToCellMapper:
     """Map check results to cell locations in output reports."""
     
     def __init__(self, mappings: Optional[Dict[str, Tuple[str, str, str]]] = None):

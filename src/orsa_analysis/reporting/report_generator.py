@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from orsa_analysis.core.database_manager import DatabaseManager
-from orsa_analysis.reporting.template_manager import TemplateManager
-from orsa_analysis.reporting.check_mapper import CheckMapper
+from orsa_analysis.reporting.excel_template_manager import ExcelTemplateManager
+from orsa_analysis.reporting.check_to_cell_mapper import CheckToCellMapper
 
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class ReportGenerator:
                  db_manager: DatabaseManager,
                  template_path: Path,
                  output_dir: Path,
-                 check_mapper: Optional[CheckMapper] = None):
+                 check_mapper: Optional[CheckToCellMapper] = None):
         """Initialize report generator.
         
         Args:
@@ -29,9 +29,9 @@ class ReportGenerator:
             check_mapper: Optional custom check mapper. If None, uses default.
         """
         self.db_manager = db_manager
-        self.template_manager = TemplateManager(template_path)
+        self.template_manager = ExcelTemplateManager(template_path)
         self.output_dir = Path(output_dir)
-        self.check_mapper = check_mapper if check_mapper is not None else CheckMapper()
+        self.check_mapper = check_mapper if check_mapper is not None else CheckToCellMapper()
         
         # Ensure output directory exists
         self.output_dir.mkdir(parents=True, exist_ok=True)
