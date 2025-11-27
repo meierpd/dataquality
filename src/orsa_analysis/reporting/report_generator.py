@@ -179,19 +179,23 @@ class ReportGenerator:
                 logger.debug(f"No mapping for check: {check_name}")
                 continue
             
-            # Get cell mapping
+            # Get cell mapping (sheet_name, cell_address, value_type)
             mapping = self.check_mapper.get_cell_location(check_name)
             if not mapping:
                 continue
             
+            sheet_name, cell_address, value_type = mapping
+            
             # Get and format value
             try:
-                value = self.check_mapper.get_value_from_result(result, mapping)
+                value = self.check_mapper.get_value_from_result(
+                    result, sheet_name, cell_address, value_type
+                )
                 
                 # Write to cell
                 success = self.template_manager.write_cell_value(
-                    mapping.sheet_name,
-                    mapping.cell_address,
+                    sheet_name,
+                    cell_address,
                     value
                 )
                 
@@ -199,7 +203,7 @@ class ReportGenerator:
                     applied_count += 1
                     logger.debug(
                         f"Applied {check_name} -> "
-                        f"{mapping.sheet_name}!{mapping.cell_address} = {value}"
+                        f"{sheet_name}!{cell_address} = {value}"
                     )
             except Exception as e:
                 logger.error(f"Failed to apply check {check_name}: {e}")

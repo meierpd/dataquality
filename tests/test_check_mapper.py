@@ -1,249 +1,158 @@
 """Tests for CheckMapper class."""
 
 import pytest
-from orsa_analysis.reporting.check_mapper import (
-    CheckMapper,
-    CellMapping,
-    CHECK_CELL_MAPPINGS,
-    FORMAT_RULES
-)
+from orsa_analysis.reporting.check_mapper import CheckMapper, CHECK_MAPPINGS
 
 
-class TestCellMapping:
-    """Test CellMapping dataclass."""
+class TestCheckMapperInitialization:
+    """Test CheckMapper initialization."""
     
-    def test_cell_mapping_creation(self):
-        """Test creating a CellMapping."""
-        mapping = CellMapping(
-            cell_address="C8",
-            value_type="outcome_bool",
-            format_rule="boolean_to_text",
-            sheet_name="Auswertung"
-        )
-        
-        assert mapping.cell_address == "C8"
-        assert mapping.value_type == "outcome_bool"
-        assert mapping.format_rule == "boolean_to_text"
-        assert mapping.sheet_name == "Auswertung"
-    
-    def test_cell_mapping_defaults(self):
-        """Test CellMapping default values."""
-        mapping = CellMapping(
-            cell_address="D10",
-            value_type="outcome_numeric"
-        )
-        
-        assert mapping.format_rule is None
-        assert mapping.sheet_name == "Auswertung"
-
-
-class TestFormatRules:
-    """Test format rules."""
-    
-    def test_boolean_to_text(self):
-        """Test boolean to text conversion."""
-        rule = FORMAT_RULES["boolean_to_text"]
-        assert rule(True) == "Pass"
-        assert rule(False) == "Fail"
-    
-    def test_boolean_to_yes_no(self):
-        """Test boolean to yes/no conversion."""
-        rule = FORMAT_RULES["boolean_to_yes_no"]
-        assert rule(True) == "Yes"
-        assert rule(False) == "No"
-    
-    def test_boolean_inverse(self):
-        """Test inverse boolean conversion."""
-        rule = FORMAT_RULES["boolean_inverse"]
-        assert rule(True) == "Fail"
-        assert rule(False) == "Pass"
-    
-    def test_numeric_with_decimals(self):
-        """Test numeric formatting."""
-        rule = FORMAT_RULES["numeric_with_decimals"]
-        assert rule(123.456) == "123.46"
-        assert rule(10) == "10.00"
-        assert rule(None) == "N/A"
-    
-    def test_count(self):
-        """Test count formatting."""
-        rule = FORMAT_RULES["count"]
-        assert rule(5.7) == 5
-        assert rule(10) == 10
-        assert rule(None) == 0
-    
-    def test_percentage(self):
-        """Test percentage formatting."""
-        rule = FORMAT_RULES["percentage"]
-        assert rule(0.856) == "85.6%"
-        assert rule(1.0) == "100.0%"
-        assert rule(None) == "N/A"
-    
-    def test_raw(self):
-        """Test raw (no transformation)."""
-        rule = FORMAT_RULES["raw"]
-        assert rule("test") == "test"
-        assert rule(123) == 123
-        assert rule(None) is None
-
-
-class TestCheckMapper:
-    """Test CheckMapper class."""
-    
-    def test_initialization_default(self):
-        """Test CheckMapper initialization with defaults."""
+    def test_init_with_defaults(self):
+        """Test initialization with default mappings."""
         mapper = CheckMapper()
-        assert mapper.mappings == CHECK_CELL_MAPPINGS
-        assert mapper.format_rules == FORMAT_RULES
+        assert mapper.mappings == CHECK_MAPPINGS
     
-    def test_initialization_custom(self):
-        """Test CheckMapper initialization with custom mappings."""
-        custom_mappings = {
-            "test_check": CellMapping(
-                cell_address="A1",
-                value_type="outcome_bool"
-            )
+    def test_init_with_custom_mappings(self):
+        """Test initialization with custom mappings."""
+        custom = {
+            "test_check": ("Sheet1", "A1", "bool")
         }
-        mapper = CheckMapper(mappings=custom_mappings)
-        assert mapper.mappings == custom_mappings
-    
-    def test_get_cell_location_exists(self):
-        """Test getting cell location for existing check."""
-        mapper = CheckMapper()
-        mapping = mapper.get_cell_location("check_sst_three_years_filled")
-        
-        assert mapping is not None
-        assert mapping.cell_address == "C8"
-        assert mapping.value_type == "outcome_bool"
-    
-    def test_get_cell_location_not_exists(self):
-        """Test getting cell location for non-existing check."""
-        mapper = CheckMapper()
-        mapping = mapper.get_cell_location("nonexistent_check")
-        assert mapping is None
+        mapper = CheckMapper(custom)
+        assert mapper.mappings == custom
+
+
+class TestHasMapping:
+    """Test has_mapping method."""
     
     def test_has_mapping_true(self):
         """Test has_mapping returns True for existing check."""
-        mapper = CheckMapper()
-        assert mapper.has_mapping("check_sst_three_years_filled") is True
+        mapper = CheckMapper({"test_check": ("Sheet1", "A1", "bool")})
+        assert mapper.has_mapping("test_check") is True
     
     def test_has_mapping_false(self):
         """Test has_mapping returns False for non-existing check."""
-        mapper = CheckMapper()
-        assert mapper.has_mapping("nonexistent_check") is False
+        mapper = CheckMapper({})
+        assert mapper.has_mapping("nonexistent") is False
+
+
+class TestGetCellLocation:
+    """Test get_cell_location method."""
     
-    def test_format_value_with_rule(self):
-        """Test formatting value with a rule."""
-        mapper = CheckMapper()
-        result = mapper.format_value(True, "boolean_to_text")
-        assert result == "Pass"
+    def test_get_cell_location_exists(self):
+        """Test getting cell location for existing check."""
+        mapper = CheckMapper({"test_check": ("Sheet1", "A1", "bool")})
+        location = mapper.get_cell_location("test_check")
+        
+        assert location is not None
+        assert location == ("Sheet1", "A1", "bool")
     
-    def test_format_value_without_rule(self):
-        """Test formatting value without a rule."""
-        mapper = CheckMapper()
-        result = mapper.format_value("test_value", None)
-        assert result == "test_value"
+    def test_get_cell_location_not_exists(self):
+        """Test getting cell location for non-existing check."""
+        mapper = CheckMapper({})
+        location = mapper.get_cell_location("nonexistent")
+        assert location is None
+
+
+class TestGetValueFromResult:
+    """Test get_value_from_result method."""
     
-    def test_format_value_unknown_rule(self):
-        """Test formatting with unknown rule raises error."""
+    def test_bool_value_fulfilled(self):
+        """Test extracting bool value when check is fulfilled (1)."""
         mapper = CheckMapper()
-        with pytest.raises(ValueError, match="Unknown format rule"):
-            mapper.format_value(True, "unknown_rule")
+        result = {"outcome_bool": 1, "outcome_numeric": None}
+        
+        value = mapper.get_value_from_result(result, "Sheet1", "A1", "bool")
+        assert value == "erfüllt"
+    
+    def test_bool_value_not_fulfilled(self):
+        """Test extracting bool value when check is not fulfilled (0)."""
+        mapper = CheckMapper()
+        result = {"outcome_bool": 0, "outcome_numeric": None}
+        
+        value = mapper.get_value_from_result(result, "Sheet1", "A1", "bool")
+        assert value == "nicht erfüllt"
+    
+    def test_metric_value(self):
+        """Test extracting metric value."""
+        mapper = CheckMapper()
+        result = {"outcome_bool": 1, "outcome_numeric": 42.5}
+        
+        value = mapper.get_value_from_result(result, "Sheet1", "A1", "metric")
+        assert value == 42.5
+    
+    def test_metric_value_none(self):
+        """Test extracting metric value when it's None."""
+        mapper = CheckMapper()
+        result = {"outcome_bool": 1, "outcome_numeric": None}
+        
+        value = mapper.get_value_from_result(result, "Sheet1", "A1", "metric")
+        assert value is None
+    
+    def test_unknown_value_type(self):
+        """Test extracting value with unknown type returns None."""
+        mapper = CheckMapper()
+        result = {"outcome_bool": 1, "outcome_numeric": 42}
+        
+        value = mapper.get_value_from_result(result, "Sheet1", "A1", "unknown")
+        assert value is None
+
+
+class TestAddMapping:
+    """Test add_mapping method."""
+    
+    def test_add_new_mapping(self):
+        """Test adding a new mapping."""
+        mapper = CheckMapper({})
+        mapper.add_mapping("new_check", "Sheet2", "B5", "bool")
+        
+        assert mapper.has_mapping("new_check")
+        assert mapper.get_cell_location("new_check") == ("Sheet2", "B5", "bool")
+    
+    def test_update_existing_mapping(self):
+        """Test updating an existing mapping."""
+        mapper = CheckMapper({"test_check": ("Sheet1", "A1", "bool")})
+        mapper.add_mapping("test_check", "Sheet2", "B5", "metric")
+        
+        assert mapper.get_cell_location("test_check") == ("Sheet2", "B5", "metric")
+
+
+class TestGetMappedChecks:
+    """Test get_mapped_checks method."""
+    
+    def test_get_mapped_checks_empty(self):
+        """Test getting checks when no mappings exist."""
+        mapper = CheckMapper({})
+        checks = mapper.get_mapped_checks()
+        assert checks == []
     
     def test_get_mapped_checks(self):
         """Test getting list of mapped checks."""
-        mapper = CheckMapper()
+        mappings = {
+            "check1": ("Sheet1", "A1", "bool"),
+            "check2": ("Sheet1", "A2", "metric"),
+        }
+        mapper = CheckMapper(mappings)
         checks = mapper.get_mapped_checks()
-        assert isinstance(checks, list)
-        assert "check_sst_three_years_filled" in checks
-    
-    def test_add_mapping(self):
-        """Test adding a new mapping."""
-        mapper = CheckMapper()
-        new_mapping = CellMapping(
-            cell_address="E10",
-            value_type="outcome_numeric"
-        )
         
-        mapper.add_mapping("new_check", new_mapping)
-        assert mapper.has_mapping("new_check")
-        assert mapper.get_cell_location("new_check") == new_mapping
-    
-    def test_get_value_from_result_outcome_bool(self):
-        """Test extracting outcome_bool from result."""
-        mapper = CheckMapper()
-        result = {
-            "check_name": "test_check",
-            "outcome_bool": True,
-            "outcome_numeric": 5.0,
-            "check_description": "Test description"
-        }
-        mapping = CellMapping(
-            cell_address="A1",
-            value_type="outcome_bool",
-            format_rule="boolean_to_text"
-        )
-        
-        value = mapper.get_value_from_result(result, mapping)
-        assert value == "Pass"
-    
-    def test_get_value_from_result_outcome_numeric(self):
-        """Test extracting outcome_numeric from result."""
-        mapper = CheckMapper()
-        result = {
-            "outcome_numeric": 123.456,
-        }
-        mapping = CellMapping(
-            cell_address="A1",
-            value_type="outcome_numeric",
-            format_rule="numeric_with_decimals"
-        )
-        
-        value = mapper.get_value_from_result(result, mapping)
-        assert value == "123.46"
-    
-    def test_get_value_from_result_description(self):
-        """Test extracting description from result."""
-        mapper = CheckMapper()
-        result = {
-            "check_description": "Test check description",
-        }
-        mapping = CellMapping(
-            cell_address="A1",
-            value_type="description"
-        )
-        
-        value = mapper.get_value_from_result(result, mapping)
-        assert value == "Test check description"
-    
-    def test_get_value_from_result_no_formatting(self):
-        """Test extracting value without formatting."""
-        mapper = CheckMapper()
-        result = {
-            "outcome_bool": False,
-        }
-        mapping = CellMapping(
-            cell_address="A1",
-            value_type="outcome_bool",
-            format_rule=None
-        )
-        
-        value = mapper.get_value_from_result(result, mapping)
-        assert value is False
+        assert len(checks) == 2
+        assert "check1" in checks
+        assert "check2" in checks
 
 
-class TestCheckCellMappings:
-    """Test the global CHECK_CELL_MAPPINGS configuration."""
+class TestDefaultMappings:
+    """Test default CHECK_MAPPINGS configuration."""
     
-    def test_sst_check_mapping_exists(self):
-        """Test that SST check mapping is configured."""
-        assert "check_sst_three_years_filled" in CHECK_CELL_MAPPINGS
+    def test_default_mappings_exist(self):
+        """Test that default mappings exist."""
+        assert isinstance(CHECK_MAPPINGS, dict)
     
-    def test_sst_check_mapping_correct(self):
-        """Test that SST check mapping has correct configuration."""
-        mapping = CHECK_CELL_MAPPINGS["check_sst_three_years_filled"]
-        
-        assert mapping.cell_address == "C8"
-        assert mapping.value_type == "outcome_bool"
-        assert mapping.format_rule == "boolean_inverse"
-        assert mapping.sheet_name == "Auswertung"
+    def test_default_mapping_format(self):
+        """Test that default mappings have correct format."""
+        for check_name, mapping in CHECK_MAPPINGS.items():
+            assert isinstance(check_name, str)
+            assert isinstance(mapping, tuple)
+            assert len(mapping) == 3
+            sheet_name, cell_address, value_type = mapping
+            assert isinstance(sheet_name, str)
+            assert isinstance(cell_address, str)
+            assert value_type in ["bool", "metric"]
