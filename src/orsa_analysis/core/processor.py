@@ -1,7 +1,7 @@
 """Main processing orchestration with caching."""
 
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from datetime import datetime
 import logging
 
@@ -61,13 +61,14 @@ class DocumentProcessor:
         return True, "New file hash"
 
     def process_file(
-        self, institute_id: str, file_path: Path
+        self, institute_id: str, file_path: Path, geschaeft_nr: Optional[str] = None
     ) -> Tuple[FileVersion, List[CheckResult]]:
         """Process a single Excel file and run all checks.
 
         Args:
             institute_id: Identifier for the institute
             file_path: Path to the Excel file
+            geschaeft_nr: Optional business case number (Geschäftsnummer)
 
         Returns:
             Tuple of (FileVersion, List of CheckResults)
@@ -104,6 +105,7 @@ class DocumentProcessor:
                     outcome_bool=outcome,
                     outcome_numeric=numeric_value,
                     processed_at=processed_at,
+                    geschaeft_nr=geschaeft_nr,
                 )
                 results.append(result)
 

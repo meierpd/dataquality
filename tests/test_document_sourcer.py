@@ -289,6 +289,7 @@ class TestORSADocumentSourcerDownload:
             {
                 "DokumentName": ["test_doc.xlsx"],
                 "DokumentLink": ["http://example.com/test_doc.xlsx"],
+                "GeschaeftNr": ["GNR123"],
             }
         )
 
@@ -301,6 +302,7 @@ class TestORSADocumentSourcerDownload:
         assert len(results) == 1
         assert results[0][0] == "test_doc.xlsx"
         assert results[0][1] == tmp_path / "test_doc.xlsx"
+        assert results[0][2] == "GNR123"
         assert (tmp_path / "test_doc.xlsx").exists()
         assert (tmp_path / "test_doc.xlsx").read_bytes() == b"file content"
 
@@ -330,8 +332,8 @@ class TestORSADocumentSourcerDownload:
         results = sourcer.download_documents(df, target_dir=tmp_path)
 
         assert len(results) == 3
-        assert all(name in ["doc1.xlsx", "doc2.xlsx", "doc3.xlsx"] for name, _ in results)
-        assert all((tmp_path / name).exists() for name, _ in results)
+        assert all(name in ["doc1.xlsx", "doc2.xlsx", "doc3.xlsx"] for name, _, _ in results)
+        assert all((tmp_path / name).exists() for name, _, _ in results)
 
     @patch("requests.get")
     def test_download_documents_with_failure(self, mock_get, tmp_path):
@@ -364,7 +366,7 @@ class TestORSADocumentSourcerDownload:
         results = sourcer.download_documents(df, target_dir=tmp_path)
 
         assert len(results) == 2  # Only successful downloads
-        assert all(name in ["doc1.xlsx", "doc3.xlsx"] for name, _ in results)
+        assert all(name in ["doc1.xlsx", "doc3.xlsx"] for name, _, _ in results)
 
     @patch("requests.get")
     def test_download_documents_default_directory(self, mock_get, tmp_path):

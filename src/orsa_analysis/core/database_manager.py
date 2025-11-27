@@ -26,6 +26,7 @@ class CheckResult:
     outcome_bool: bool
     outcome_numeric: Optional[float]
     processed_at: datetime
+    geschaeft_nr: Optional[str] = None
 
 
 class DatabaseManager:
@@ -130,6 +131,7 @@ class DatabaseManager:
             "outcome_bool": int(r.outcome_bool),
             "outcome_numeric": r.outcome_numeric,
             "processed_timestamp": r.processed_at,
+            "geschaeft_nr": r.geschaeft_nr,
         } for r in results]
         
         df = pd.DataFrame(data)

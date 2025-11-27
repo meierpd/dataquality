@@ -8,7 +8,8 @@ SELECT
     ErstellungsDatum,
     BerichtPeriode,
     InstitutID,
-    InstitutName
+    InstitutName,
+    GeschaeftNr
 FROM 
     dbo.ORSA_Dokumente
 WHERE 
