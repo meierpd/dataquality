@@ -223,8 +223,12 @@ class ReportGenerator:
         # Extract version and other metadata
         version = metadata.get('version', 1)
         
-        # Build filename: {institute_id}_ORSA_Report_v{version}.xlsx
-        filename = f"{institute_id}_ORSA_Report_v{version}.xlsx"
+        # Build filename: {institute_id}_ORSA_Report[_v{version}].xlsx
+        # Only include version suffix for v2+, omit for v1
+        if version == 1:
+            filename = f"{institute_id}_ORSA_Report.xlsx"
+        else:
+            filename = f"{institute_id}_ORSA_Report_v{version}.xlsx"
         
         return self.output_dir / filename
     
