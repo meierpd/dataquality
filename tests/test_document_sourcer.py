@@ -181,97 +181,6 @@ class TestORSADocumentSourcerMetadata:
         mock_run_query.assert_called_once()
 
 
-class TestORSADocumentSourcerFiltering:
-    """Tests for document filtering."""
-
-    def test_filter_relevant_orsa_2026_default(self, sample_metadata_df):
-        """Test filtering for ORSA documents year == 2026 (default)."""
-        sourcer = ORSADocumentSourcer()
-        result = sourcer.filter_relevant(sample_metadata_df)
-
-        assert len(result) == 1  # Only 2026 ORSA document
-        assert all("_ORSA-Formular" in name for name in result["DokumentName"])
-        assert all(year == 2026 for year in result["reporting_year"])
-
-    def test_filter_relevant_orsa_2027(self, sample_metadata_df):
-        """Test filtering for ORSA documents year == 2027."""
-        sourcer = ORSADocumentSourcer(berichtsjahr=2027)
-        result = sourcer.filter_relevant(sample_metadata_df)
-
-        assert len(result) == 1  # Only 2027 ORSA document
-        assert all("_ORSA-Formular" in name for name in result["DokumentName"])
-        assert all(year == 2027 for year in result["reporting_year"])
-
-    def test_filter_relevant_empty_dataframe(self):
-        """Test filtering with empty DataFrame."""
-        sourcer = ORSADocumentSourcer()
-        empty_df = pd.DataFrame(columns=["DokumentName", "DokumentLink"])
-
-        result = sourcer.filter_relevant(empty_df)
-
-        assert len(result) == 0
-        assert "reporting_year" in result.columns
-
-    def test_filter_relevant_no_orsa_documents(self):
-        """Test filtering when no ORSA documents match criteria."""
-        df = pd.DataFrame(
-            {
-                "DokumentName": [
-                    "2024_Company_A_Other.xlsx",
-                    "2025_Company_B_Report.xlsx",
-                ],
-                "DokumentLink": [
-                    "http://example.com/doc1.xlsx",
-                    "http://example.com/doc2.xlsx",
-                ],
-            }
-        )
-
-        sourcer = ORSADocumentSourcer()
-        result = sourcer.filter_relevant(df)
-
-        assert len(result) == 0
-
-    def test_filter_relevant_year_extraction(self):
-        """Test year extraction from document names."""
-        df = pd.DataFrame(
-            {
-                "DokumentName": [
-                    "2026_ORSA-Formular_Test.xlsx",
-                    "Test_2027_ORSA-Formular.xlsx",
-                    "2028_Test_ORSA-Formular.xlsx",
-                ],
-                "DokumentLink": ["http://example.com/doc.xlsx"] * 3,
-            }
-        )
-
-        sourcer = ORSADocumentSourcer(berichtsjahr=2026)
-        result = sourcer.filter_relevant(df)
-
-        # Now filters only for berichtsjahr == 2026
-        assert len(result) == 1
-        assert list(result["reporting_year"]) == [2026.0]
-        
-    def test_filter_relevant_year_extraction_multiple_years(self):
-        """Test that only the specified berichtsjahr is returned."""
-        df = pd.DataFrame(
-            {
-                "DokumentName": [
-                    "2026_ORSA-Formular_Test.xlsx",
-                    "Test_2027_ORSA-Formular.xlsx",
-                    "2028_Test_ORSA-Formular.xlsx",
-                ],
-                "DokumentLink": ["http://example.com/doc.xlsx"] * 3,
-            }
-        )
-
-        # Test for 2027
-        sourcer = ORSADocumentSourcer(berichtsjahr=2027)
-        result = sourcer.filter_relevant(df)
-        assert len(result) == 1
-        assert list(result["reporting_year"]) == [2027.0]
-
-
 class TestORSADocumentSourcerDownload:
     """Tests for document downloading."""
 
@@ -426,25 +335,21 @@ class TestORSADocumentSourcerLoad:
     """Tests for the main load method."""
 
     @patch.object(ORSADocumentSourcer, "download_documents")
-    @patch.object(ORSADocumentSourcer, "filter_relevant")
     @patch.object(ORSADocumentSourcer, "get_document_metadata")
     def test_load_integration(
         self,
         mock_get_metadata,
-        mock_filter,
         mock_download,
         sample_metadata_df,
         tmp_path,
     ):
         """Test the full load workflow."""
-        filtered_df = sample_metadata_df[sample_metadata_df["DokumentID"].isin([1, 3])]
         expected_results = [
-            ("2026_Company_A_ORSA-Formular.xlsx", tmp_path / "doc1.xlsx"),
-            ("2027_Company_C_ORSA-Formular.xlsx", tmp_path / "doc3.xlsx"),
+            ("2026_Company_A_ORSA-Formular.xlsx", tmp_path / "doc1.xlsx", None),
+            ("2027_Company_C_ORSA-Formular.xlsx", tmp_path / "doc3.xlsx", None),
         ]
 
         mock_get_metadata.return_value = sample_metadata_df
-        mock_filter.return_value = filtered_df
         mock_download.return_value = expected_results
 
         sourcer = ORSADocumentSourcer()
@@ -452,18 +357,15 @@ class TestORSADocumentSourcerLoad:
 
         assert results == expected_results
         mock_get_metadata.assert_called_once()
-        mock_filter.assert_called_once_with(sample_metadata_df)
-        mock_download.assert_called_once_with(filtered_df, tmp_path)
+        mock_download.assert_called_once_with(sample_metadata_df, tmp_path)
 
     @patch.object(ORSADocumentSourcer, "download_documents")
-    @patch.object(ORSADocumentSourcer, "filter_relevant")
     @patch.object(ORSADocumentSourcer, "get_document_metadata")
     def test_load_default_target_dir(
-        self, mock_get_metadata, mock_filter, mock_download, sample_metadata_df
+        self, mock_get_metadata, mock_download, sample_metadata_df
     ):
         """Test load with default target directory."""
         mock_get_metadata.return_value = sample_metadata_df
-        mock_filter.return_value = sample_metadata_df
         mock_download.return_value = []
 
         sourcer = ORSADocumentSourcer()
@@ -472,16 +374,14 @@ class TestORSADocumentSourcerLoad:
         mock_download.assert_called_once_with(sample_metadata_df, None)
 
     @patch.object(ORSADocumentSourcer, "download_documents")
-    @patch.object(ORSADocumentSourcer, "filter_relevant")
     @patch.object(ORSADocumentSourcer, "get_document_metadata")
     def test_load_empty_results(
-        self, mock_get_metadata, mock_filter, mock_download, tmp_path
+        self, mock_get_metadata, mock_download, tmp_path
     ):
         """Test load when no documents match criteria."""
         empty_df = pd.DataFrame(columns=["DokumentName", "DokumentLink"])
 
         mock_get_metadata.return_value = empty_df
-        mock_filter.return_value = empty_df
         mock_download.return_value = []
 
         sourcer = ORSADocumentSourcer()

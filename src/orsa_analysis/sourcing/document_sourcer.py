@@ -20,8 +20,7 @@ class ORSADocumentSourcer:
     """Source ORSA documents from the database and download them locally.
     
     This class handles:
-    - Querying the database for document metadata
-    - Filtering relevant ORSA documents
+    - Querying the database for document metadata (filtered by berichtsjahr)
     - Downloading documents from SharePoint links
     
     Note:
@@ -107,51 +106,6 @@ class ORSADocumentSourcer:
         )
         return document_metadata_df
 
-    def filter_relevant(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Filter for relevant ORSA documents.
-        
-        Note: Most filtering is now done at the database level via the SQL query.
-        This method serves as a safety check and for backward compatibility.
-        
-        Filters for:
-        - Documents containing "_ORSA-Formular" in name (redundant with SQL WHERE clause)
-        - Reporting year matching the specified berichtsjahr (redundant with SQL WHERE clause)
-        
-        Args:
-            df: DataFrame with document metadata
-            
-        Returns:
-            Filtered DataFrame with reporting_year column added
-        """
-        df = df.copy()
-        
-        # If empty, still add the expected column for backward compatibility
-        if len(df) == 0:
-            logger.warning("No documents returned from database query")
-            df["reporting_year"] = pd.Series(dtype=float)
-            return df
-        
-        # Safety check: filter by year if Berichtsjahr column exists
-        if "Berichtsjahr" in df.columns:
-            mask = df["Berichtsjahr"] == self.berichtsjahr
-            filtered_df = df[mask]
-            # Add reporting_year column for backward compatibility
-            filtered_df["reporting_year"] = filtered_df["Berichtsjahr"]
-        else:
-            # Fallback: extract year from DokumentName
-            df["reporting_year"] = (
-                df["DokumentName"].str.extract(r"(\d{4})")[0].astype(float)
-            )
-            mask = df["DokumentName"].str.lower().str.contains("_orsa-formular") & (
-                df["reporting_year"] == self.berichtsjahr
-            )
-            filtered_df = df[mask]
-            
-        logger.info(
-            f"Verified {len(filtered_df)} relevant ORSA documents for Berichtsjahr {self.berichtsjahr}"
-        )
-        return filtered_df
-
     def download_documents(
         self, document_df: pd.DataFrame, target_dir: Path = None
     ) -> List[Tuple[str, Path, str]]:
@@ -209,9 +163,8 @@ class ORSADocumentSourcer:
         """Load all relevant ORSA documents.
         
         This is the main entry point that:
-        1. Retrieves document metadata from database
-        2. Filters for relevant documents
-        3. Downloads documents locally
+        1. Retrieves document metadata from database (filtered by berichtsjahr)
+        2. Downloads documents locally
         
         Args:
             target_dir: Directory to save files (default: orsa_response_files/)
@@ -220,9 +173,8 @@ class ORSADocumentSourcer:
             List of tuples (document_name, file_path, geschaeft_nr)
         """
         logger.info("Starting ORSA document loading process")
-        all_document_metadata_df = self.get_document_metadata()
-        relevant_document_metadata_df = self.filter_relevant(all_document_metadata_df)
-        documents = self.download_documents(relevant_document_metadata_df, target_dir)
+        document_metadata_df = self.get_document_metadata()
+        documents = self.download_documents(document_metadata_df, target_dir)
         logger.info(f"Document loading complete: {len(documents)} files ready")
         return documents
 
