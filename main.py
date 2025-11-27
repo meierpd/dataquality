@@ -1,4 +1,15 @@
-"""Main entry point for the data quality control tool."""
+"""Main entry point for the data quality control tool.
+
+Quick Start:
+    To run with default settings:
+    
+        python main.py
+    
+    This will:
+    - Connect to the database using credentials from credentials.env
+    - Process ORSA documents for reporting year 2026
+    - Skip already processed files (use --force to reprocess all)
+"""
 
 import argparse
 import logging

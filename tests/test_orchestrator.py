@@ -5,11 +5,10 @@ from pathlib import Path
 from openpyxl import Workbook
 from typing import List, Tuple, Dict, Any
 
-from orsa_analysis.core.orchestrator import (
-    ORSAPipeline,
-    CachedDocumentProcessor,
-)
+from orsa_analysis.core.orchestrator import ORSAPipeline
 from orsa_analysis.core.database_manager import CheckResult
+from orsa_analysis.core.versioning import VersionManager
+from orsa_analysis.core.processor import DocumentProcessor
 
 
 class MockDatabaseManager:
@@ -260,26 +259,13 @@ class TestORSAPipeline:
         assert len(summary["institutes"]) == 0
 
 
-class TestCachedDocumentProcessor:
-    """Test cases for CachedDocumentProcessor class."""
-    
-    def test_initialization(self, db_manager):
-        """Test cached processor initialization."""
-        processor = CachedDocumentProcessor(db_manager, cache_enabled=True)
-        assert processor.db_manager == db_manager
-        assert processor.cache_enabled is True
-        assert processor.processor is not None
-    
-    def test_initialization_cache_disabled(self, db_manager):
-        """Test initialization with cache disabled."""
-        processor = CachedDocumentProcessor(db_manager, cache_enabled=False)
-        assert processor.cache_enabled is False
-        assert processor.processor.force_reprocess is True
+class TestVersionManagerCaching:
+    """Test cases for VersionManager cache inspection methods."""
     
     def test_get_cache_status_uncached(self, db_manager, sample_excel_file):
         """Test getting cache status for uncached file."""
-        processor = CachedDocumentProcessor(db_manager)
-        status = processor.get_cache_status("INST001", sample_excel_file)
+        processor = DocumentProcessor(db_manager)
+        status = processor.version_manager.get_cache_status("INST001", sample_excel_file)
         
         assert "is_cached" in status
         assert status["is_cached"] is False
@@ -288,13 +274,13 @@ class TestCachedDocumentProcessor:
     
     def test_get_cache_status_cached(self, db_manager, sample_excel_file):
         """Test getting cache status for cached file."""
-        processor = CachedDocumentProcessor(db_manager)
+        processor = DocumentProcessor(db_manager)
         
         # Process file to cache it
-        processor.processor.process_file("INST001", sample_excel_file)
+        processor.process_file("INST001", sample_excel_file)
         
         # Check cache status
-        status = processor.get_cache_status("INST001", sample_excel_file)
+        status = processor.version_manager.get_cache_status("INST001", sample_excel_file)
         
         assert status["is_cached"] is True
         assert "version_number" in status
@@ -304,18 +290,18 @@ class TestCachedDocumentProcessor:
         self, db_manager, sample_excel_file, sample_excel_file2
     ):
         """Test invalidating cache for a specific institute."""
-        processor = CachedDocumentProcessor(db_manager)
+        processor = DocumentProcessor(db_manager)
         
         # Process files for two institutes
-        processor.processor.process_file("INST001", sample_excel_file)
-        processor.processor.process_file("INST002", sample_excel_file2)
+        processor.process_file("INST001", sample_excel_file)
+        processor.process_file("INST002", sample_excel_file2)
         
         # Invalidate cache for INST001
-        processor.invalidate_cache("INST001")
+        processor.version_manager.invalidate_cache("INST001")
         
         # INST001 should not be cached, INST002 should still be cached
-        status1 = processor.get_cache_status("INST001", sample_excel_file)
-        status2 = processor.get_cache_status("INST002", sample_excel_file2)
+        status1 = processor.version_manager.get_cache_status("INST001", sample_excel_file)
+        status2 = processor.version_manager.get_cache_status("INST002", sample_excel_file2)
         
         assert status1["is_cached"] is False
         assert status2["is_cached"] is True
@@ -324,26 +310,26 @@ class TestCachedDocumentProcessor:
         self, db_manager, sample_excel_file, sample_excel_file2
     ):
         """Test invalidating entire cache."""
-        processor = CachedDocumentProcessor(db_manager)
+        processor = DocumentProcessor(db_manager)
         
         # Process files
-        processor.processor.process_file("INST001", sample_excel_file)
-        processor.processor.process_file("INST002", sample_excel_file2)
+        processor.process_file("INST001", sample_excel_file)
+        processor.process_file("INST002", sample_excel_file2)
         
         # Invalidate all cache
-        processor.invalidate_cache()
+        processor.version_manager.invalidate_cache()
         
         # Both should not be cached
-        status1 = processor.get_cache_status("INST001", sample_excel_file)
-        status2 = processor.get_cache_status("INST002", sample_excel_file2)
+        status1 = processor.version_manager.get_cache_status("INST001", sample_excel_file)
+        status2 = processor.version_manager.get_cache_status("INST002", sample_excel_file2)
         
         assert status1["is_cached"] is False
         assert status2["is_cached"] is False
     
     def test_get_cache_statistics_empty(self, db_manager):
         """Test cache statistics with empty cache."""
-        processor = CachedDocumentProcessor(db_manager)
-        stats = processor.get_cache_statistics()
+        processor = DocumentProcessor(db_manager)
+        stats = processor.version_manager.get_cache_statistics()
         
         assert stats["total_institutes"] == 0
         assert stats["total_versions"] == 0
@@ -353,13 +339,13 @@ class TestCachedDocumentProcessor:
         self, db_manager, sample_excel_file, sample_excel_file2
     ):
         """Test cache statistics with cached data."""
-        processor = CachedDocumentProcessor(db_manager)
+        processor = DocumentProcessor(db_manager)
         
         # Process files
-        processor.processor.process_file("INST001", sample_excel_file)
-        processor.processor.process_file("INST002", sample_excel_file2)
+        processor.process_file("INST001", sample_excel_file)
+        processor.process_file("INST002", sample_excel_file2)
         
-        stats = processor.get_cache_statistics()
+        stats = processor.version_manager.get_cache_statistics()
         
         assert stats["total_institutes"] == 2
         assert stats["total_versions"] == 2
@@ -368,14 +354,14 @@ class TestCachedDocumentProcessor:
     
     def test_cache_statistics_after_invalidation(self, db_manager, sample_excel_file):
         """Test cache statistics after cache invalidation."""
-        processor = CachedDocumentProcessor(db_manager)
+        processor = DocumentProcessor(db_manager)
         
         # Process and cache
-        processor.processor.process_file("INST001", sample_excel_file)
-        stats1 = processor.get_cache_statistics()
+        processor.process_file("INST001", sample_excel_file)
+        stats1 = processor.version_manager.get_cache_statistics()
         assert stats1["total_versions"] == 1
         
         # Invalidate and check
-        processor.invalidate_cache()
-        stats2 = processor.get_cache_statistics()
+        processor.version_manager.invalidate_cache()
+        stats2 = processor.version_manager.get_cache_statistics()
         assert stats2["total_versions"] == 0

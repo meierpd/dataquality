@@ -15,7 +15,7 @@ from orsa_analysis.core.processor import DocumentProcessor
 from orsa_analysis.core.database_manager import CheckResult, DatabaseManager
 from orsa_analysis.core.versioning import VersionManager
 from orsa_analysis.core.reader import ExcelReader
-from orsa_analysis.core.orchestrator import ORSAPipeline, CachedDocumentProcessor
+from orsa_analysis.core.orchestrator import ORSAPipeline
 
 __all__ = [
     "DocumentProcessor",
@@ -24,5 +24,4 @@ __all__ = [
     "VersionManager",
     "ExcelReader",
     "ORSAPipeline",
-    "CachedDocumentProcessor",
 ]
