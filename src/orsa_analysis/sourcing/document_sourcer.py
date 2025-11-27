@@ -139,8 +139,10 @@ class ORSADocumentSourcer:
         for idx, row in document_df.iterrows():
             name = row["DokumentName"]
             link = row["DokumentLink"]
-            geschaeft_nr = row.get("GeschaeftNr", None)
-            finma_id = row.get("FinmaID", None)
+            # Extract scalar values from Series to avoid "unhashable type: 'Series'" error
+            # Use bracket notation and convert to Python types
+            geschaeft_nr = str(row["GeschaeftNr"]) if "GeschaeftNr" in row and pd.notna(row["GeschaeftNr"]) else None
+            finma_id = str(row["FinmaID"]) if "FinmaID" in row and pd.notna(row["FinmaID"]) else None
             out = target_dir / name
             
             try:
