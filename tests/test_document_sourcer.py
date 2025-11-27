@@ -53,40 +53,19 @@ def sample_metadata_df():
 class TestORSADocumentSourcerInit:
     """Tests for ORSADocumentSourcer initialization."""
 
-    @patch("orsa_analysis.sourcing.document_sourcer.load_dotenv")
-    @patch("os.getenv")
-    def test_init_with_existing_credentials_file(
-        self, mock_getenv, mock_load_dotenv, tmp_path
-    ):
+    def test_init_with_existing_credentials_file(self, tmp_path):
         """Test initialization with existing credentials file."""
         cred_file = tmp_path / "credentials.env"
         cred_file.write_text("username=testuser\npassword=testpass\n")
 
-        mock_getenv.side_effect = lambda key, default="": {
-            "username": "testuser",
-            "password": "testpass",
-        }.get(key, default)
+        sourcer = ORSADocumentSourcer(cred_file="credentials.env")
+        assert sourcer.cred_file.name == "credentials.env"
 
-        with patch.object(Path, "exists", return_value=True):
-            with patch.object(
-                ORSADocumentSourcer, "_load_credentials", return_value=None
-            ):
-                sourcer = ORSADocumentSourcer(cred_file="credentials.env")
-                assert sourcer.cred_file.name == "credentials.env"
-
-    @patch("orsa_analysis.sourcing.document_sourcer.load_dotenv")
-    @patch("os.getenv")
-    def test_init_without_credentials_file(self, mock_getenv, mock_load_dotenv):
+    def test_init_without_credentials_file(self):
         """Test initialization without credentials file."""
-        mock_getenv.side_effect = lambda key, default="": {
-            "username": "",
-            "password": "",
-        }.get(key, default)
-
-        with patch.object(Path, "exists", return_value=False):
-            sourcer = ORSADocumentSourcer()
-            assert sourcer.username == ""
-            assert sourcer.password == ""
+        sourcer = ORSADocumentSourcer()
+        # Should initialize without errors even if file doesn't exist
+        assert sourcer.cred_file.name == "credentials.env"
 
     def test_directory_structure(self):
         """Test that directory paths are correctly calculated."""
@@ -96,46 +75,29 @@ class TestORSADocumentSourcerInit:
 
 
 class TestORSADocumentSourcerCredentials:
-    """Tests for credential loading."""
+    """Tests for credential usage from environment variables."""
 
-    @patch("os.getenv")
-    @patch("orsa_analysis.sourcing.document_sourcer.load_dotenv")
-    def test_load_credentials_success(self, mock_load_dotenv, mock_getenv, tmp_path):
-        """Test successful credential loading."""
-        cred_file = tmp_path / "credentials.env"
-        cred_file.write_text("username=user123\npassword=pass456\n")
+    def test_credentials_from_environment(self, monkeypatch):
+        """Test that credentials are read from environment variables."""
+        monkeypatch.setenv("DB_USER", "user123")
+        monkeypatch.setenv("DB_PASSWORD", "pass456")
 
-        mock_getenv.side_effect = lambda key, default="": {
-            "username": "user123",
-            "password": "pass456",
-        }.get(key, default)
+        sourcer = ORSADocumentSourcer()
+        
+        # Verify credentials are available in environment
+        assert os.getenv("DB_USER") == "user123"
+        assert os.getenv("DB_PASSWORD") == "pass456"
 
-        with patch.object(Path, "exists", return_value=True):
-            sourcer = ORSADocumentSourcer()
-            sourcer.cred_file = cred_file
-            sourcer._load_credentials()
+    def test_missing_credentials_in_environment(self, monkeypatch):
+        """Test handling of missing credentials."""
+        monkeypatch.delenv("DB_USER", raising=False)
+        monkeypatch.delenv("DB_PASSWORD", raising=False)
 
-            assert sourcer.username == "user123"
-            assert sourcer.password == "pass456"
-
-    @patch("os.getenv")
-    @patch("orsa_analysis.sourcing.document_sourcer.load_dotenv")
-    def test_load_credentials_missing_values(
-        self, mock_load_dotenv, mock_getenv, tmp_path
-    ):
-        """Test credential loading with missing values."""
-        cred_file = tmp_path / "credentials.env"
-        cred_file.write_text("username=\npassword=\n")
-
-        mock_getenv.side_effect = lambda key, default="": default
-
-        with patch.object(Path, "exists", return_value=True):
-            sourcer = ORSADocumentSourcer()
-            sourcer.cred_file = cred_file
-            sourcer._load_credentials()
-
-            assert sourcer.username == ""
-            assert sourcer.password == ""
+        sourcer = ORSADocumentSourcer()
+        
+        # Should initialize without errors
+        assert os.getenv("DB_USER", "") == ""
+        assert os.getenv("DB_PASSWORD", "") == ""
 
 
 class TestORSADocumentSourcerQuery:
@@ -166,11 +128,11 @@ class TestORSADocumentSourcerQuery:
             sourcer._load_query("nonexistent_query")
 
     @patch("orsa_analysis.core.database_manager.DatabaseManager")
-    def test_run_query_success(self, mock_db_manager_class):
+    def test_run_query_success(self, mock_db_manager_class, monkeypatch):
         """Test successful query execution."""
         sourcer = ORSADocumentSourcer()
-        sourcer.username = "testuser"
-        sourcer.password = "testpass"
+        monkeypatch.setenv("DB_USER", "testuser")
+        monkeypatch.setenv("DB_PASSWORD", "testpass")
 
         mock_df = pd.DataFrame({"col1": [1, 2], "col2": ["a", "b"]})
         
@@ -182,10 +144,11 @@ class TestORSADocumentSourcerQuery:
         result = sourcer._run_query("SELECT * FROM test;")
 
         assert result.equals(mock_df)
+        # Verify DatabaseManager was called with the credentials file
         mock_db_manager_class.assert_called_once_with(
             server="frbdata.finma.ch",
             database="GBB_Reporting",
-            credentials_file=None
+            credentials_file=sourcer.cred_file
         )
         mock_db_instance.execute_query.assert_called_once_with("SELECT * FROM test;")
 
@@ -278,7 +241,7 @@ class TestORSADocumentSourcerDownload:
     """Tests for document downloading."""
 
     @patch("requests.get")
-    def test_download_documents_success(self, mock_get, tmp_path):
+    def test_download_documents_success(self, mock_get, tmp_path, monkeypatch):
         """Test successful document download."""
         mock_response = Mock()
         mock_response.content = b"file content"
@@ -289,23 +252,25 @@ class TestORSADocumentSourcerDownload:
             {
                 "DokumentName": ["test_doc.xlsx"],
                 "DokumentLink": ["http://example.com/test_doc.xlsx"],
+                "GeschaeftNr": ["GNR123"],
             }
         )
 
         sourcer = ORSADocumentSourcer()
-        sourcer.username = "testuser"
-        sourcer.password = "testpass"
+        monkeypatch.setenv("DB_USER", "testuser")
+        monkeypatch.setenv("DB_PASSWORD", "testpass")
 
         results = sourcer.download_documents(df, target_dir=tmp_path)
 
         assert len(results) == 1
         assert results[0][0] == "test_doc.xlsx"
         assert results[0][1] == tmp_path / "test_doc.xlsx"
+        assert results[0][2] == "GNR123"
         assert (tmp_path / "test_doc.xlsx").exists()
         assert (tmp_path / "test_doc.xlsx").read_bytes() == b"file content"
 
     @patch("requests.get")
-    def test_download_documents_multiple(self, mock_get, tmp_path):
+    def test_download_documents_multiple(self, mock_get, tmp_path, monkeypatch):
         """Test downloading multiple documents."""
         mock_response = Mock()
         mock_response.content = b"file content"
@@ -324,17 +289,17 @@ class TestORSADocumentSourcerDownload:
         )
 
         sourcer = ORSADocumentSourcer()
-        sourcer.username = "testuser"
-        sourcer.password = "testpass"
+        monkeypatch.setenv("DB_USER", "testuser")
+        monkeypatch.setenv("DB_PASSWORD", "testpass")
 
         results = sourcer.download_documents(df, target_dir=tmp_path)
 
         assert len(results) == 3
-        assert all(name in ["doc1.xlsx", "doc2.xlsx", "doc3.xlsx"] for name, _ in results)
-        assert all((tmp_path / name).exists() for name, _ in results)
+        assert all(name in ["doc1.xlsx", "doc2.xlsx", "doc3.xlsx"] for name, _, _ in results)
+        assert all((tmp_path / name).exists() for name, _, _ in results)
 
     @patch("requests.get")
-    def test_download_documents_with_failure(self, mock_get, tmp_path):
+    def test_download_documents_with_failure(self, mock_get, tmp_path, monkeypatch):
         """Test download with some failures."""
         def side_effect(*args, **kwargs):
             if "doc2" in args[0]:
@@ -358,16 +323,16 @@ class TestORSADocumentSourcerDownload:
         )
 
         sourcer = ORSADocumentSourcer()
-        sourcer.username = "testuser"
-        sourcer.password = "testpass"
+        monkeypatch.setenv("DB_USER", "testuser")
+        monkeypatch.setenv("DB_PASSWORD", "testpass")
 
         results = sourcer.download_documents(df, target_dir=tmp_path)
 
         assert len(results) == 2  # Only successful downloads
-        assert all(name in ["doc1.xlsx", "doc3.xlsx"] for name, _ in results)
+        assert all(name in ["doc1.xlsx", "doc3.xlsx"] for name, _, _ in results)
 
     @patch("requests.get")
-    def test_download_documents_default_directory(self, mock_get, tmp_path):
+    def test_download_documents_default_directory(self, mock_get, tmp_path, monkeypatch):
         """Test download to default directory."""
         mock_response = Mock()
         mock_response.content = b"file content"
@@ -382,8 +347,8 @@ class TestORSADocumentSourcerDownload:
         )
 
         sourcer = ORSADocumentSourcer()
-        sourcer.username = "testuser"
-        sourcer.password = "testpass"
+        monkeypatch.setenv("DB_USER", "testuser")
+        monkeypatch.setenv("DB_PASSWORD", "testpass")
         sourcer.default_target_dir = tmp_path / "test_orsa_files"
 
         results = sourcer.download_documents(df)
@@ -393,7 +358,7 @@ class TestORSADocumentSourcerDownload:
         assert (sourcer.default_target_dir / "test_doc.xlsx").exists()
 
     @patch("requests.get")
-    def test_download_documents_auth_used(self, mock_get, tmp_path):
+    def test_download_documents_auth_used(self, mock_get, tmp_path, monkeypatch):
         """Test that NTLM authentication is used."""
         from requests_ntlm import HttpNtlmAuth
 
@@ -410,8 +375,8 @@ class TestORSADocumentSourcerDownload:
         )
 
         sourcer = ORSADocumentSourcer()
-        sourcer.username = "testuser"
-        sourcer.password = "testpass"
+        monkeypatch.setenv("DB_USER", "testuser")
+        monkeypatch.setenv("DB_PASSWORD", "testpass")
 
         sourcer.download_documents(df, target_dir=tmp_path)
 

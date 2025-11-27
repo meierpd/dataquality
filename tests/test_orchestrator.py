@@ -44,10 +44,10 @@ class MockDatabaseManager:
 class MockORSADocumentSourcer:
     """Mock ORSADocumentSourcer for testing."""
     
-    def __init__(self, documents: List[Tuple[str, Path]]):
+    def __init__(self, documents: List[Tuple[str, Path, str]]):
         self.documents = documents
     
-    def load(self) -> List[Tuple[str, Path]]:
+    def load(self) -> List[Tuple[str, Path, str]]:
         return self.documents
 
 
@@ -111,7 +111,7 @@ class TestORSAPipeline:
     
     def test_process_single_document(self, pipeline, sample_excel_file):
         """Test processing a single document."""
-        documents = [("INST001_report.xlsx", sample_excel_file)]
+        documents = [("INST001_report.xlsx", sample_excel_file, None)]
         summary = pipeline.process_documents(documents)
         
         assert summary["files_processed"] == 1
@@ -131,8 +131,8 @@ class TestORSAPipeline:
     ):
         """Test processing multiple documents."""
         documents = [
-            ("INST001_report.xlsx", sample_excel_file),
-            ("INST002_report.xlsx", sample_excel_file2),
+            ("INST001_report.xlsx", sample_excel_file, None),
+            ("INST002_report.xlsx", sample_excel_file2, None),
         ]
         summary = pipeline.process_documents(documents)
         
@@ -146,7 +146,7 @@ class TestORSAPipeline:
         """Test that duplicate documents are skipped."""
         # Create new pipeline for this test
         pipeline = ORSAPipeline(db_manager, force_reprocess=False)
-        documents = [("INST001_report.xlsx", sample_excel_file)]
+        documents = [("INST001_report.xlsx", sample_excel_file, None)]
         
         # First processing
         summary1 = pipeline.process_documents(documents)
@@ -170,7 +170,7 @@ class TestORSAPipeline:
         """Test that force reprocess overrides caching."""
         # First pipeline without force
         pipeline1 = ORSAPipeline(db_manager, force_reprocess=False)
-        documents = [("INST001_report.xlsx", sample_excel_file)]
+        documents = [("INST001_report.xlsx", sample_excel_file, None)]
         
         # First processing
         summary1 = pipeline1.process_documents(documents)
@@ -190,7 +190,7 @@ class TestORSAPipeline:
     def test_process_nonexistent_file(self, pipeline, tmp_path):
         """Test handling of non-existent file."""
         nonexistent = tmp_path / "nonexistent.xlsx"
-        documents = [("INST001_nonexistent.xlsx", nonexistent)]
+        documents = [("INST001_nonexistent.xlsx", nonexistent, None)]
         
         summary = pipeline.process_documents(documents)
         
@@ -199,7 +199,7 @@ class TestORSAPipeline:
     
     def test_process_from_sourcer(self, pipeline, sample_excel_file):
         """Test processing documents from a sourcer."""
-        documents = [("INST001_report.xlsx", sample_excel_file)]
+        documents = [("INST001_report.xlsx", sample_excel_file, None)]
         sourcer = MockORSADocumentSourcer(documents)
         
         summary = pipeline.process_from_sourcer(sourcer)
@@ -209,7 +209,7 @@ class TestORSAPipeline:
     
     def test_generate_summary(self, pipeline, sample_excel_file):
         """Test generating pipeline summary."""
-        documents = [("INST001_report.xlsx", sample_excel_file)]
+        documents = [("INST001_report.xlsx", sample_excel_file, None)]
         pipeline.process_documents(documents)
         
         summary = pipeline.generate_summary()
@@ -245,7 +245,7 @@ class TestORSAPipeline:
             wb = Workbook()
             wb.save(file_path)
             
-            documents = [(filename, file_path)]
+            documents = [(filename, file_path, None)]
             summary = pipeline.process_documents(documents)
             
             assert expected_id in summary["institutes"]

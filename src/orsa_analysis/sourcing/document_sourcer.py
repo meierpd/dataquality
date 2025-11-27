@@ -7,7 +7,6 @@ from typing import List, Tuple
 
 import pandas as pd
 import requests
-from dotenv import load_dotenv
 from requests_ntlm import HttpNtlmAuth
 
 logger = logging.getLogger(__name__)
@@ -21,14 +20,16 @@ class ORSADocumentSourcer:
     """Source ORSA documents from the database and download them locally.
     
     This class handles:
-    - Loading credentials from environment file
     - Querying the database for document metadata
     - Filtering relevant ORSA documents
     - Downloading documents from SharePoint links
     
+    Note:
+        Credentials are managed by DatabaseManager and accessed via environment variables.
+        The DatabaseManager must be initialized before downloading documents to ensure
+        credentials are loaded into the environment.
+    
     Attributes:
-        username: Database username
-        password: Database password
         base_dir: Base directory of the sourcing module
         cred_file: Path to credentials file
         default_target_dir: Directory where documents are downloaded
@@ -39,26 +40,11 @@ class ORSADocumentSourcer:
         
         Args:
             cred_file: Name of credentials file (relative to project root)
+                This is passed to DatabaseManager for credential loading.
         """
         self.base_dir = Path(__file__).resolve().parent
         self.cred_file = self.base_dir.parent.parent.parent / cred_file
         self.default_target_dir = self.base_dir.parent.parent.parent / "data" / "orsa_response_files"
-        self._load_credentials()
-
-    def _load_credentials(self) -> None:
-        """Load username and password from credentials file."""
-        if not self.cred_file.exists():
-            logger.warning(f"Credentials file not found: {self.cred_file}")
-            self.username = os.getenv("username", "")
-            self.password = os.getenv("password", "")
-            return
-            
-        load_dotenv(self.cred_file.as_posix())
-        self.username = os.getenv("username", "")
-        self.password = os.getenv("password", "")
-        
-        if not self.username or not self.password:
-            logger.warning("Username or password not set in credentials file")
 
     def _load_query(self, name: str) -> str:
         """Load SQL query from file.
@@ -138,15 +124,19 @@ class ORSADocumentSourcer:
 
     def download_documents(
         self, document_df: pd.DataFrame, target_dir: Path = None
-    ) -> List[Tuple[str, Path]]:
+    ) -> List[Tuple[str, Path, str]]:
         """Download documents from SharePoint links.
         
         Args:
-            document_df: DataFrame with DokumentName and DokumentLink columns
+            document_df: DataFrame with DokumentName, DokumentLink, and GeschaeftNr columns
             target_dir: Directory to save files (default: orsa_response_files/)
             
         Returns:
-            List of tuples (document_name, file_path)
+            List of tuples (document_name, file_path, geschaeft_nr)
+            
+        Note:
+            Requires DB_USER and DB_PASSWORD to be set in environment variables.
+            These are set by DatabaseManager when credentials_file is provided.
         """
         if target_dir is None:
             target_dir = self.default_target_dir
@@ -154,22 +144,30 @@ class ORSADocumentSourcer:
         target_dir.mkdir(exist_ok=True)
         logger.info(f"Downloading documents to: {target_dir}")
         
+        # Get credentials from environment (set by DatabaseManager)
+        username = os.getenv("DB_USER", "")
+        password = os.getenv("DB_PASSWORD", "")
+        
+        if not username or not password:
+            logger.warning("No credentials found in environment. Downloads may fail.")
+        
         results = []
         for idx, row in document_df.iterrows():
             name = row["DokumentName"]
             link = row["DokumentLink"]
+            geschaeft_nr = row.get("GeschaeftNr", None)
             out = target_dir / name
             
             try:
                 logger.info(f"Downloading: {name}")
                 r = requests.get(
                     link,
-                    auth=HttpNtlmAuth(self.username, self.password),
+                    auth=HttpNtlmAuth(username, password),
                     allow_redirects=True,
                 )
                 r.raise_for_status()
                 out.write_bytes(r.content)
-                results.append((name, out))
+                results.append((name, out, geschaeft_nr))
                 logger.info(f"  ✓ Saved to: {out}")
             except Exception as e:
                 logger.error(f"  ✗ Failed to download {name}: {e}")
@@ -177,7 +175,7 @@ class ORSADocumentSourcer:
         logger.info(f"Successfully downloaded {len(results)}/{len(document_df)} documents")
         return results
 
-    def load(self, target_dir: Path = None) -> List[Tuple[str, Path]]:
+    def load(self, target_dir: Path = None) -> List[Tuple[str, Path, str]]:
         """Load all relevant ORSA documents.
         
         This is the main entry point that:
@@ -189,7 +187,7 @@ class ORSADocumentSourcer:
             target_dir: Directory to save files (default: orsa_response_files/)
             
         Returns:
-            List of tuples (document_name, file_path)
+            List of tuples (document_name, file_path, geschaeft_nr)
         """
         logger.info("Starting ORSA document loading process")
         all_document_metadata_df = self.get_document_metadata()

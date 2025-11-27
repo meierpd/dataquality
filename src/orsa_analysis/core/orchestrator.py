@@ -62,7 +62,7 @@ class ORSAPipeline:
         )
     
     def process_documents(
-        self, documents: List[Tuple[str, Path]]
+        self, documents: List[Tuple[str, Path, Optional[str]]]
     ) -> Dict[str, Any]:
         """Process a list of documents through the quality control pipeline.
         
@@ -75,7 +75,8 @@ class ORSAPipeline:
         6. Returns processing statistics
         
         Args:
-            documents: List of tuples (document_name, file_path)
+            documents: List of tuples (document_name, file_path, geschaeft_nr)
+                where geschaeft_nr is optional
         
         Returns:
             Dictionary containing:
@@ -93,7 +94,7 @@ class ORSAPipeline:
             FileNotFoundError: If a document file doesn't exist
             
         Example:
-            >>> documents = [("INST001_report.xlsx", Path("data/file1.xlsx"))]
+            >>> documents = [("INST001_report.xlsx", Path("data/file1.xlsx"), "GNR123")]
             >>> results = pipeline.process_documents(documents)
             >>> print(f"Processed {results['files_processed']} files")
         """
@@ -102,7 +103,7 @@ class ORSAPipeline:
         
         logger.info(f"Starting pipeline processing for {len(documents)} documents")
         
-        for doc_name, file_path in documents:
+        for doc_name, file_path, geschaeft_nr in documents:
             try:
                 # Validate file exists
                 if not file_path.exists():
@@ -132,7 +133,7 @@ class ORSAPipeline:
                 
                 # Process file through quality checks
                 version_info, check_results = self.processor.process_file(
-                    institute_id, file_path
+                    institute_id, file_path, geschaeft_nr
                 )
                 
                 # Update statistics

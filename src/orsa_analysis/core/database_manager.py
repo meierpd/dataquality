@@ -26,6 +26,7 @@ class CheckResult:
     outcome_bool: bool
     outcome_numeric: Optional[float]
     processed_at: datetime
+    geschaeft_nr: Optional[str] = None
 
 
 class DatabaseManager:
@@ -65,11 +66,8 @@ class DatabaseManager:
             password = os.getenv("password", "")
             
             if username and password:
-                # Prefix username with domain for GBB_Reporting server
-                if server == "frbdata.finma.ch":
-                    username = "Finma\\" + username
-                
-                # Set environment variables for engine creation
+                # Store credentials in environment variables (without domain prefix)
+                # This allows other components (like document_sourcer) to use them
                 os.environ["DB_USER"] = username
                 os.environ["DB_PASSWORD"] = password
                 logger.info(f"Loaded credentials from {credentials_file}")
@@ -83,6 +81,11 @@ class DatabaseManager:
         if "DB_USER" in os.environ and "DB_PASSWORD" in os.environ:
             db_user = os.environ["DB_USER"]
             db_password = os.environ["DB_PASSWORD"]
+            
+            # Prefix username with domain for GBB_Reporting server
+            if self.server == "frbdata.finma.ch":
+                db_user = "Finma\\" + db_user
+            
             conn_str = f"mssql+pymssql://{db_user}:{db_password}@{self.server}/{self.database}"
             logger.info(f"Using pymssql driver with credential-based auth for {self.server}/{self.database}")
             logger.debug(f"Connection string: mssql+pymssql://{db_user}:***@{self.server}/{self.database}")
@@ -130,6 +133,7 @@ class DatabaseManager:
             "outcome_bool": int(r.outcome_bool),
             "outcome_numeric": r.outcome_numeric,
             "processed_timestamp": r.processed_at,
+            "geschaeft_nr": r.geschaeft_nr,
         } for r in results]
         
         df = pd.DataFrame(data)
