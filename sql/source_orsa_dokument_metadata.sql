@@ -1,5 +1,6 @@
 -- Query to retrieve ORSA document metadata from the database
--- This is a placeholder query - replace with actual SQL based on your database schema
+-- This query filters for relevant ORSA documents for a specific reporting year (Berichtsjahr)
+-- The {berichtsjahr} placeholder will be replaced with the actual year value
 
 SELECT 
     DokumentID,
@@ -9,12 +10,15 @@ SELECT
     BerichtPeriode,
     InstitutID,
     InstitutName,
-    GeschaeftNr
+    GeschaeftNr,
+    Berichtsjahr
 FROM 
     dbo.ORSA_Dokumente
 WHERE 
     Aktiv = 1
     AND DokumentTyp = 'ORSA-Formular'
+    AND Berichtsjahr = {berichtsjahr}
+    AND DokumentName LIKE '%_ORSA-Formular%'
 ORDER BY 
     BerichtPeriode DESC,
     InstitutName ASC;

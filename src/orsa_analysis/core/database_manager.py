@@ -167,6 +167,115 @@ class DatabaseManager:
             logger.warning(f"Could not load existing versions: {e}")
             return []
     
+    def get_latest_results_for_institute(self, institute_id: str) -> List[Dict[str, Any]]:
+        """Get latest check results for a specific institute.
+        
+        Args:
+            institute_id: Institute identifier
+            
+        Returns:
+            List of check result dictionaries
+        """
+        try:
+            query = f"""
+                SELECT 
+                    institute_id,
+                    file_name,
+                    file_hash,
+                    version,
+                    check_name,
+                    check_description,
+                    outcome_bool,
+                    outcome_numeric,
+                    processed_at,
+                    geschaeft_nr
+                FROM {self.schema}.vw_orsa_analysis_latest
+                WHERE institute_id = '{institute_id}'
+                ORDER BY check_name
+            """
+            df = self.execute_query(query)
+            logger.debug(f"Retrieved {len(df)} results for institute {institute_id}")
+            return df.to_dict('records')
+        except Exception as e:
+            logger.error(f"Failed to get results for institute {institute_id}: {e}")
+            return []
+    
+    def get_all_institutes_with_results(self) -> List[str]:
+        """Get list of all institutes that have check results.
+        
+        Returns:
+            List of institute IDs
+        """
+        try:
+            query = f"""
+                SELECT DISTINCT institute_id
+                FROM {self.schema}.vw_orsa_analysis_latest
+                ORDER BY institute_id
+            """
+            df = self.execute_query(query)
+            institutes = df['institute_id'].tolist()
+            logger.debug(f"Found {len(institutes)} institutes with results")
+            return institutes
+        except Exception as e:
+            logger.error(f"Failed to get institutes with results: {e}")
+            return []
+    
+    def get_latest_version_for_institute(self, institute_id: str) -> Optional[int]:
+        """Get latest version number for an institute.
+        
+        Args:
+            institute_id: Institute identifier
+            
+        Returns:
+            Latest version number, or None if not found
+        """
+        try:
+            query = f"""
+                SELECT MAX(version) as max_version
+                FROM {self.schema}.{self.table_name}
+                WHERE institute_id = '{institute_id}'
+            """
+            df = self.execute_query(query)
+            if not df.empty and df['max_version'].iloc[0] is not None:
+                version = int(df['max_version'].iloc[0])
+                logger.debug(f"Latest version for {institute_id}: {version}")
+                return version
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get latest version for {institute_id}: {e}")
+            return None
+    
+    def get_institute_metadata(self, institute_id: str) -> Optional[Dict[str, Any]]:
+        """Get metadata for an institute (file name, hash, version, etc.).
+        
+        Args:
+            institute_id: Institute identifier
+            
+        Returns:
+            Dictionary with metadata, or None if not found
+        """
+        try:
+            query = f"""
+                SELECT TOP 1
+                    institute_id,
+                    file_name,
+                    file_hash,
+                    version,
+                    geschaeft_nr,
+                    processed_at
+                FROM {self.schema}.vw_orsa_analysis_latest
+                WHERE institute_id = '{institute_id}'
+            """
+            df = self.execute_query(query)
+            if not df.empty:
+                metadata = df.iloc[0].to_dict()
+                logger.debug(f"Retrieved metadata for {institute_id}")
+                return metadata
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get metadata for {institute_id}: {e}")
+            return None
+    
     def close(self) -> None:
         """Close database connection."""
         if self.engine:

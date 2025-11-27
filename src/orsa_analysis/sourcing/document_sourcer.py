@@ -90,41 +90,65 @@ class ORSADocumentSourcer:
         return db_manager.execute_query(query)
 
     def get_document_metadata(self) -> pd.DataFrame:
-        """Retrieve all document metadata from the database.
+        """Retrieve document metadata from the database for the specified reporting year.
+        
+        The SQL query is parameterized with berichtsjahr to filter at the database level.
         
         Returns:
-            DataFrame with columns: DokumentName, DokumentLink, etc.
+            DataFrame with columns: DokumentName, DokumentLink, Berichtsjahr, etc.
         """
         q = self._load_query("source_orsa_dokument_metadata")
+        # Substitute berichtsjahr parameter in query
+        q = q.format(berichtsjahr=self.berichtsjahr)
         document_metadata_df = self._run_query(q)
-        logger.info(f"Retrieved {len(document_metadata_df)} documents from database")
+        logger.info(
+            f"Retrieved {len(document_metadata_df)} documents from database "
+            f"for Berichtsjahr {self.berichtsjahr}"
+        )
         return document_metadata_df
 
     def filter_relevant(self, df: pd.DataFrame) -> pd.DataFrame:
         """Filter for relevant ORSA documents.
         
+        Note: Most filtering is now done at the database level via the SQL query.
+        This method serves as a safety check and for backward compatibility.
+        
         Filters for:
-        - Documents containing "_ORSA-Formular" in name
-        - Reporting year matching the specified berichtsjahr
+        - Documents containing "_ORSA-Formular" in name (redundant with SQL WHERE clause)
+        - Reporting year matching the specified berichtsjahr (redundant with SQL WHERE clause)
         
         Args:
             df: DataFrame with document metadata
             
         Returns:
-            Filtered DataFrame
+            Filtered DataFrame with reporting_year column added
         """
         df = df.copy()
-        df["reporting_year"] = (
-            df["DokumentName"].str.extract(r"(\d{4})")[0].astype(float)
-        )
-
-        # Filter ORSA docs and year matching berichtsjahr
-        mask = df["DokumentName"].str.lower().str.contains("_orsa-formular") & (
-            df["reporting_year"] == self.berichtsjahr
-        )
-        filtered_df = df[mask]
+        
+        # If empty, still add the expected column for backward compatibility
+        if len(df) == 0:
+            logger.warning("No documents returned from database query")
+            df["reporting_year"] = pd.Series(dtype=float)
+            return df
+        
+        # Safety check: filter by year if Berichtsjahr column exists
+        if "Berichtsjahr" in df.columns:
+            mask = df["Berichtsjahr"] == self.berichtsjahr
+            filtered_df = df[mask]
+            # Add reporting_year column for backward compatibility
+            filtered_df["reporting_year"] = filtered_df["Berichtsjahr"]
+        else:
+            # Fallback: extract year from DokumentName
+            df["reporting_year"] = (
+                df["DokumentName"].str.extract(r"(\d{4})")[0].astype(float)
+            )
+            mask = df["DokumentName"].str.lower().str.contains("_orsa-formular") & (
+                df["reporting_year"] == self.berichtsjahr
+            )
+            filtered_df = df[mask]
+            
         logger.info(
-            f"Filtered to {len(filtered_df)} relevant ORSA documents for Berichtsjahr {self.berichtsjahr}"
+            f"Verified {len(filtered_df)} relevant ORSA documents for Berichtsjahr {self.berichtsjahr}"
         )
         return filtered_df
 
