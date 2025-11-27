@@ -1,220 +1,183 @@
-"""Template and Excel file management for report generation."""
+"""Template manager for Excel report generation."""
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
-import openpyxl
+from openpyxl import load_workbook
 from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
-
 
 logger = logging.getLogger(__name__)
 
 
 class TemplateManager:
-    """Manage template and source file operations for report generation."""
+    """Manages Excel template operations for report generation.
     
+    This manager uses a simple approach:
+    1. Load the source ORSA file as the base workbook
+    2. Copy template sheets and insert them at the beginning
+    3. Keep all original source sheets intact
+    """
+
     def __init__(self, template_path: Path):
         """Initialize template manager.
-        
+
         Args:
-            template_path: Path to template Excel file
-            
+            template_path: Path to the Excel template file
+
         Raises:
-            FileNotFoundError: If template file does not exist
+            FileNotFoundError: If template file doesn't exist
         """
-        self.template_path = Path(template_path)
-        if not self.template_path.exists():
+        if not template_path.exists():
             raise FileNotFoundError(f"Template file not found: {template_path}")
-        
-        logger.debug(f"TemplateManager initialized with template: {template_path}")
-    
-    def load_template(self) -> Workbook:
-        """Load template workbook.
-        
+
+        self.template_path = template_path
+        self.output_wb = None
+        logger.info(f"Template manager initialized with: {template_path}")
+
+    def create_output_workbook(self, source_path: Path) -> Workbook:
+        """Create output workbook by loading source file and prepending template sheets.
+
+        This method:
+        1. Loads the source ORSA file as the base workbook
+        2. Copies template sheets and inserts them at the beginning
+        3. Keeps all original source sheets intact
+
+        Args:
+            source_path: Path to source ORSA Excel file
+
         Returns:
-            Loaded workbook
+            Output workbook with template sheets first, then source sheets
             
         Raises:
-            Exception: If template cannot be loaded
-        """
-        try:
-            wb = openpyxl.load_workbook(self.template_path)
-            logger.debug(f"Loaded template with {len(wb.sheetnames)} sheets: {wb.sheetnames}")
-            return wb
-        except Exception as e:
-            logger.error(f"Failed to load template: {e}")
-            raise
-    
-    def load_source_file(self, source_path: Path) -> Optional[Workbook]:
-        """Load source ORSA workbook.
-        
-        Args:
-            source_path: Path to source Excel file
-            
-        Returns:
-            Loaded workbook, or None if file cannot be loaded
+            FileNotFoundError: If source file doesn't exist
         """
         if not source_path.exists():
-            logger.warning(f"Source file not found: {source_path}")
-            return None
-        
-        try:
-            wb = openpyxl.load_workbook(source_path, data_only=True)
-            logger.debug(f"Loaded source file with {len(wb.sheetnames)} sheets")
-            return wb
-        except Exception as e:
-            logger.error(f"Failed to load source file {source_path}: {e}")
-            return None
-    
-    def create_output_workbook(self, 
-                               template_wb: Workbook,
-                               source_wb: Optional[Workbook] = None) -> Workbook:
-        """Create output workbook from template and optional source.
-        
-        The output workbook will have:
-        1. First: All sheets from template (especially 'Auswertung')
-        2. Then: All sheets from source file (if provided)
-        
-        Args:
-            template_wb: Loaded template workbook
-            source_wb: Optional source ORSA workbook
+            raise FileNotFoundError(f"Source file not found: {source_path}")
+
+        # Load source file as base
+        self.output_wb = load_workbook(source_path)
+        logger.debug(f"Loaded source file with sheets: {self.output_wb.sheetnames}")
+
+        # Load template file
+        template_wb = load_workbook(self.template_path)
+        logger.debug(f"Loaded template with sheets: {template_wb.sheetnames}")
+
+        # Copy template sheets and insert them at the beginning
+        template_sheet_names = list(template_wb.sheetnames)
+        for i, sheet_name in enumerate(template_sheet_names):
+            # Handle potential name conflicts
+            target_name = sheet_name
+            if target_name in self.output_wb.sheetnames:
+                target_name = f"{sheet_name}_template"
+                logger.debug(
+                    f"Sheet name conflict: renaming template sheet {sheet_name} to {target_name}"
+                )
             
-        Returns:
-            New workbook for output
-        """
-        # Create new workbook
-        output_wb = Workbook()
-        
-        # Remove default sheet
-        if "Sheet" in output_wb.sheetnames:
-            output_wb.remove(output_wb["Sheet"])
-        
-        # Copy all sheets from template first
-        logger.debug("Copying template sheets to output workbook")
-        for sheet_name in template_wb.sheetnames:
-            self._copy_sheet(template_wb[sheet_name], output_wb, sheet_name)
-        
-        # Then copy all sheets from source if provided
-        if source_wb is not None:
-            logger.debug("Copying source sheets to output workbook")
-            for sheet_name in source_wb.sheetnames:
-                # Avoid name conflicts by appending suffix if needed
-                target_name = sheet_name
-                if sheet_name in output_wb.sheetnames:
-                    target_name = f"{sheet_name}_Source"
-                    logger.debug(f"Sheet name conflict: renaming '{sheet_name}' to '{target_name}'")
-                
-                self._copy_sheet(source_wb[sheet_name], output_wb, target_name)
-        
-        logger.info(f"Created output workbook with {len(output_wb.sheetnames)} sheets")
-        return output_wb
-    
-    def _copy_sheet(self, source_sheet: Worksheet, 
-                   target_wb: Workbook, 
-                   target_name: str) -> Worksheet:
-        """Copy a worksheet to target workbook.
-        
+            # Copy the template sheet
+            self._copy_sheet(template_wb[sheet_name], self.output_wb, target_name)
+            logger.debug(f"Copied template sheet: {target_name}")
+
+            # Move to position i (template sheets at beginning)
+            self.output_wb.move_sheet(target_name, offset=-(len(self.output_wb.sheetnames) - 1 - i))
+
+        logger.info(
+            f"Created output workbook with {len(self.output_wb.sheetnames)} sheets "
+            f"(template sheets first)"
+        )
+        return self.output_wb
+
+    def _copy_sheet(
+        self, source_sheet: Worksheet, target_wb: Workbook, new_name: str
+    ) -> Worksheet:
+        """Copy a worksheet to target workbook with all styles and formatting.
+
         Args:
-            source_sheet: Sheet to copy from
-            target_wb: Workbook to copy to
-            target_name: Name for the new sheet
-            
+            source_sheet: Source worksheet to copy
+            target_wb: Target workbook
+            new_name: Name for the new sheet
+
         Returns:
-            Created worksheet
+            Newly created worksheet
         """
-        target_sheet = target_wb.create_sheet(title=target_name)
-        
-        # Copy cell values and basic formatting
+        target_sheet = target_wb.create_sheet(new_name)
+
+        # Copy cell values and styles
         for row in source_sheet.iter_rows():
             for cell in row:
                 target_cell = target_sheet[cell.coordinate]
                 target_cell.value = cell.value
-                
-                # Copy basic formatting if it exists
+
+                # Copy styles if present
                 if cell.has_style:
                     target_cell.font = cell.font.copy()
                     target_cell.border = cell.border.copy()
                     target_cell.fill = cell.fill.copy()
                     target_cell.number_format = cell.number_format
                     target_cell.alignment = cell.alignment.copy()
-        
+
         # Copy column dimensions
-        for col_letter, dimension in source_sheet.column_dimensions.items():
-            target_sheet.column_dimensions[col_letter].width = dimension.width
-        
+        for col_letter, dim in source_sheet.column_dimensions.items():
+            target_sheet.column_dimensions[col_letter].width = dim.width
+
         # Copy row dimensions
-        for row_num, dimension in source_sheet.row_dimensions.items():
-            target_sheet.row_dimensions[row_num].height = dimension.height
-        
+        for row_num, dim in source_sheet.row_dimensions.items():
+            target_sheet.row_dimensions[row_num].height = dim.height
+
         # Copy merged cells
-        for merged_cell_range in source_sheet.merged_cells.ranges:
-            target_sheet.merge_cells(str(merged_cell_range))
-        
-        logger.debug(f"Copied sheet '{source_sheet.title}' as '{target_name}'")
+        for merged_range in source_sheet.merged_cells.ranges:
+            target_sheet.merge_cells(str(merged_range))
+
         return target_sheet
-    
-    def write_cell_value(self, wb: Workbook, 
-                        sheet_name: str,
-                        cell_address: str, 
-                        value: any) -> bool:
-        """Write value to specific cell.
-        
+
+    def write_cell_value(
+        self, sheet_name: str, cell_address: str, value: Any
+    ) -> bool:
+        """Write a value to a specific cell in the output workbook.
+
         Args:
-            wb: Workbook to modify
-            sheet_name: Name of sheet containing the cell
-            cell_address: Excel cell address (e.g., "C8")
+            sheet_name: Name of the worksheet
+            cell_address: Cell address (e.g., "A1", "B5")
             value: Value to write
-            
+
         Returns:
             True if successful, False otherwise
         """
+        if self.output_wb is None:
+            logger.error("Output workbook not created yet")
+            return False
+
+        if sheet_name not in self.output_wb.sheetnames:
+            logger.error(f"Sheet not found: {sheet_name}")
+            return False
+
         try:
-            if sheet_name not in wb.sheetnames:
-                logger.error(f"Sheet '{sheet_name}' not found in workbook")
-                return False
-            
-            sheet = wb[sheet_name]
+            sheet = self.output_wb[sheet_name]
             sheet[cell_address] = value
             logger.debug(f"Wrote value to {sheet_name}!{cell_address}: {value}")
             return True
-        
         except Exception as e:
-            logger.error(f"Failed to write to {sheet_name}!{cell_address}: {e}")
+            logger.error(f"Error writing to {sheet_name}!{cell_address}: {e}")
             return False
-    
-    def save_workbook(self, wb: Workbook, output_path: Path) -> bool:
-        """Save workbook to file.
-        
+
+    def save_workbook(self, output_path: Path) -> None:
+        """Save the output workbook to file.
+
         Args:
-            wb: Workbook to save
-            output_path: Path where to save the file
-            
-        Returns:
-            True if successful, False otherwise
+            output_path: Path where to save the workbook
         """
-        try:
-            # Ensure output directory exists
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Save workbook
-            wb.save(output_path)
-            logger.info(f"Saved workbook to: {output_path}")
-            return True
-        
-        except Exception as e:
-            logger.error(f"Failed to save workbook to {output_path}: {e}")
-            return False
-    
-    def close_workbook(self, wb: Workbook) -> None:
-        """Close workbook to free resources.
-        
-        Args:
-            wb: Workbook to close
-        """
-        try:
-            wb.close()
-            logger.debug("Closed workbook")
-        except Exception as e:
-            logger.warning(f"Error closing workbook: {e}")
+        if self.output_wb is None:
+            logger.error("No output workbook to save")
+            return
+
+        # Create output directory if needed
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.output_wb.save(output_path)
+        logger.info(f"Saved output workbook to: {output_path}")
+
+    def close(self) -> None:
+        """Close all open workbooks."""
+        self.output_wb = None
+        logger.debug("Closed template manager workbooks")

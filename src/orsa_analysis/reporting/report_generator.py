@@ -79,42 +79,30 @@ class ReportGenerator:
             logger.info(f"Skipping generation (use force_overwrite=True to regenerate)")
             return None
         
-        # Load template
-        try:
-            template_wb = self.template_manager.load_template()
-        except Exception as e:
-            logger.error(f"Failed to load template: {e}")
+        # Validate source file path
+        if not source_file_path or not source_file_path.exists():
+            logger.error(f"Source file required and must exist: {source_file_path}")
             return None
         
-        # Load source file if provided
-        source_wb = None
-        if source_file_path:
-            source_wb = self.template_manager.load_source_file(source_file_path)
-            if source_wb is None:
-                logger.warning(f"Could not load source file: {source_file_path}")
-        
-        # Create output workbook
-        output_wb = self.template_manager.create_output_workbook(template_wb, source_wb)
+        # Create output workbook (source file as base, template sheets prepended)
+        try:
+            self.template_manager.create_output_workbook(source_file_path)
+        except Exception as e:
+            logger.error(f"Failed to create output workbook: {e}")
+            return None
         
         # Apply check results to output
-        applied_count = self._apply_check_results(output_wb, check_results)
+        applied_count = self._apply_check_results(check_results)
         logger.info(f"Applied {applied_count} check results to report")
         
         # Save output file
-        success = self.template_manager.save_workbook(output_wb, output_path)
+        self.template_manager.save_workbook(output_path)
         
         # Clean up
-        self.template_manager.close_workbook(template_wb)
-        if source_wb:
-            self.template_manager.close_workbook(source_wb)
-        self.template_manager.close_workbook(output_wb)
+        self.template_manager.close()
         
-        if success:
-            logger.info(f"Report generated successfully: {output_path}")
-            return output_path
-        else:
-            logger.error(f"Failed to save report for {institute_id}")
-            return None
+        logger.info(f"Report generated successfully: {output_path}")
+        return output_path
     
     def generate_all_reports(self, 
                            source_files: Optional[Dict[str, Path]] = None,
@@ -172,11 +160,10 @@ class ReportGenerator:
         """
         return self.db_manager.get_all_institutes_with_results()
     
-    def _apply_check_results(self, workbook, check_results: List[Dict]) -> int:
+    def _apply_check_results(self, check_results: List[Dict]) -> int:
         """Apply check results to workbook cells.
         
         Args:
-            workbook: Workbook to modify
             check_results: List of check result dictionaries
             
         Returns:
@@ -203,7 +190,6 @@ class ReportGenerator:
                 
                 # Write to cell
                 success = self.template_manager.write_cell_value(
-                    workbook,
                     mapping.sheet_name,
                     mapping.cell_address,
                     value
