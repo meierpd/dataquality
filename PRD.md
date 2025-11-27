@@ -66,7 +66,7 @@ Denormalized table **qc_results** with columns:
 * check_description
 * outcome_bool
 * outcome_numeric
-* processed_at (timestamp)
+* processed_timestamp (timestamp)
 
 ### 5.2 Excel per Institute
 

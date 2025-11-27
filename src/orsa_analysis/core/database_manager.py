@@ -187,7 +187,7 @@ class DatabaseManager:
                     check_description,
                     outcome_bool,
                     outcome_numeric,
-                    processed_at,
+                    processed_timestamp,
                     geschaeft_nr
                 FROM {self.schema}.vw_orsa_analysis_latest
                 WHERE institute_id = '{institute_id}'
@@ -262,7 +262,7 @@ class DatabaseManager:
                     file_hash,
                     version,
                     geschaeft_nr,
-                    processed_at
+                    processed_timestamp
                 FROM {self.schema}.vw_orsa_analysis_latest
                 WHERE institute_id = '{institute_id}'
             """
