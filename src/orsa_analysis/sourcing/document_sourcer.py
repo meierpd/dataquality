@@ -9,7 +9,6 @@ import pandas as pd
 import requests
 from dotenv import load_dotenv
 from requests_ntlm import HttpNtlmAuth
-from sqlalchemy import create_engine
 
 logger = logging.getLogger(__name__)
 
@@ -87,15 +86,21 @@ class ORSADocumentSourcer:
         Returns:
             Query results as DataFrame
         """
-        connection_string = "mssql+pymssql://{}:{}@{}/{}".format(
-            "Finma\\" + self.username,
-            self.password,
-            "frbdata.finma.ch",
-            "GBB_Reporting",
+        from orsa_analysis.core.database_manager import DatabaseManager
+        
+        # Set credentials as environment variables for DatabaseManager
+        os.environ["DB_USER"] = "Finma\\" + self.username
+        os.environ["DB_PASSWORD"] = self.password
+        
+        # Create database manager for GBB_Reporting
+        db_manager = DatabaseManager(
+            server="frbdata.finma.ch",
+            database="GBB_Reporting",
+            credentials_file=None  # Using environment variables
         )
-        logger.info(f"Connecting to database: {connection_string.split(':')[0]}...")
-        engine = create_engine(connection_string)
-        return pd.read_sql_query(query, engine)
+        
+        logger.info("Executing query against GBB_Reporting database")
+        return db_manager.execute_query(query)
 
     def get_document_metadata(self) -> pd.DataFrame:
         """Retrieve all document metadata from the database.

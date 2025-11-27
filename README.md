@@ -33,27 +33,28 @@ orsa_analysis/
   src/
     orsa_analysis/
       __init__.py
-      cli.py              # Command-line interface
+      cli.py              # Command-line interface  
       core/               # Core processing logic
         __init__.py
         processor.py      # Main document processor
         reader.py         # Excel file reader
         versioning.py     # File versioning & caching
-        db.py            # Database writers
-        report.py        # Report generation
-      checks/            # Quality check rules
+        db.py             # Database writers (InMemory, MSSQL)
+        database_manager.py  # Database connection manager
+      checks/             # Quality check rules
         __init__.py
         rules.py          # Check implementations
-      sourcing/          # Document sourcing
+      sourcing/           # Document sourcing
         __init__.py
         document_sourcer.py  # ORSADocumentSourcer
-  templates/
-    institute_report_template.xlsx
   sql/
-    source_orsa_dokument_metadata.sql
-  tests/              # Comprehensive unit tests
-  pyproject.toml      # Modern Python packaging
+    source_orsa_dokument_metadata.sql    # Query for document metadata
+    create_table_orsa_analysis_data.sql  # Database table schema
+  tests/                # 103 comprehensive unit tests
+  main.py               # Main entry point for production use
+  pyproject.toml        # Modern Python packaging
   README.md
+  PRD.md
 ```
 
 ## Installation
@@ -73,19 +74,33 @@ The package can be used as a library or via the command-line interface.
 ### Command-Line Usage
 
 ```bash
-# Process Excel files with CLI
-orsa-qc --institute-id INS001 --input-files file1.xlsx file2.xlsx
+# Process ORSA documents from sourcer (writes to MSSQL)
+orsa-qc --verbose
+
+# Force reprocess all files
+orsa-qc --force --verbose
+
+# Use custom credentials file
+orsa-qc --credentials /path/to/credentials.env
 ```
 
-### Library Usage with ORSADocumentSourcer
+Or run main.py directly:
+
+```bash
+python main.py --verbose
+```
+
+### Library Usage with ORSADocumentSourcer and MSSQL
 
 ```python
-from orsa_analysis import DocumentProcessor
-from orsa_analysis.core.db import InMemoryDatabaseWriter
+from orsa_analysis import DocumentProcessor, MSSQLDatabaseWriter
 from orsa_analysis.sourcing import ORSADocumentSourcer
 
-# Initialize database writer
-db_writer = InMemoryDatabaseWriter()
+# Initialize MSSQL database writer
+db_writer = MSSQLDatabaseWriter(
+    server="frbdata.finma.ch",
+    database="GBI_REPORTING"
+)
 
 # Initialize processor
 processor = DocumentProcessor(db_writer, force_reprocess=False)
@@ -96,7 +111,12 @@ documents = sourcer.load()  # Returns List[Tuple[str, Path]]
 
 # Process all documents
 for name, path in documents:
-    results = processor.process_file(path, institute_id="INS001")
+    # Extract institute ID from filename (e.g., "INS001_ORSA_2026.xlsx")
+    institute_id = name.split('_')[0]
+    results = processor.process_file(path, institute_id=institute_id)
+
+# Write all results to database
+db_writer.write_results()
 
 # Get processing summary
 summary = processor.get_processing_summary()
@@ -104,8 +124,20 @@ print(f"Total files: {summary['total_files']}")
 print(f"Processed: {summary['processed']}")
 print(f"Cached: {summary['cached']}")
 print(f"Pass rate: {summary['pass_rate']:.1%}")
+```
 
-# Access stored results
+For testing or development without a database:
+
+```python
+from orsa_analysis import DocumentProcessor, InMemoryDatabaseWriter
+
+# Use in-memory writer for testing
+db_writer = InMemoryDatabaseWriter()
+processor = DocumentProcessor(db_writer)
+
+# ... process files ...
+
+# Access results in memory
 all_results = db_writer.get_results()
 ```
 
@@ -156,22 +188,61 @@ Then add the function to the `REGISTERED_CHECKS` list in the same file:
 REGISTERED_CHECKS.append(("example_check", check_example))
 ```
 
-## Database Schema
+## Database Integration
 
-Single denormalized table containing all results:
+The system writes check results to an MSSQL database for reporting and analysis.
 
-**Table: qc_results**
+### Database Schema
 
-* id (PK)
-* institute_id
-* file_name
-* file_hash
-* version_number
-* check_name
-* check_description
-* outcome_bool
-* outcome_numeric
-* processed_at (timestamp)
+**Database**: `GBI_REPORTING`  
+**Schema**: `gbi`  
+**Table**: `orsa_analysis_data`
+
+Columns:
+* id (INT, IDENTITY PK)
+* institute_id (NVARCHAR(50))
+* file_name (NVARCHAR(255))
+* file_hash (NVARCHAR(64))
+* version (INT)
+* check_name (NVARCHAR(100))
+* check_description (NVARCHAR(MAX))
+* outcome_bool (BIT)
+* outcome_numeric (FLOAT, NULL)
+* processed_timestamp (DATETIME2, DEFAULT GETDATE())
+
+Indexes:
+* Clustered index on id
+* Non-clustered index on institute_id
+* Non-clustered index on file_hash
+* Composite index on (institute_id, version)
+
+### Database Views
+
+Two convenience views are provided:
+
+1. **vw_orsa_analysis_latest**: Shows only the latest version per institute
+2. **vw_orsa_analysis_summary**: Aggregates pass rates by institute and check
+
+### Setup Database
+
+To create the database table and views:
+
+```bash
+# Run the SQL script on your MSSQL server
+sqlcmd -S your_server -d GBI_REPORTING -i sql/create_table_orsa_analysis_data.sql
+```
+
+### Database Connection
+
+The system uses environment variables for database credentials:
+
+```bash
+# Set environment variables
+export DB_USER=your_username
+export DB_PASSWORD=your_password
+```
+
+Alternatively, use Windows authentication (default on Windows systems).
 
 ## Processing Workflow
 

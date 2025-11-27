@@ -165,22 +165,29 @@ class TestORSADocumentSourcerQuery:
         with pytest.raises(FileNotFoundError, match="Query file not found"):
             sourcer._load_query("nonexistent_query")
 
-    @patch("orsa_analysis.sourcing.document_sourcer.create_engine")
-    @patch("orsa_analysis.sourcing.document_sourcer.pd.read_sql_query")
-    def test_run_query_success(self, mock_read_sql, mock_create_engine):
+    @patch("orsa_analysis.core.database_manager.DatabaseManager")
+    def test_run_query_success(self, mock_db_manager_class):
         """Test successful query execution."""
         sourcer = ORSADocumentSourcer()
         sourcer.username = "testuser"
         sourcer.password = "testpass"
 
         mock_df = pd.DataFrame({"col1": [1, 2], "col2": ["a", "b"]})
-        mock_read_sql.return_value = mock_df
+        
+        # Mock the DatabaseManager instance
+        mock_db_instance = MagicMock()
+        mock_db_instance.execute_query.return_value = mock_df
+        mock_db_manager_class.return_value = mock_db_instance
 
         result = sourcer._run_query("SELECT * FROM test;")
 
         assert result.equals(mock_df)
-        mock_create_engine.assert_called_once()
-        mock_read_sql.assert_called_once()
+        mock_db_manager_class.assert_called_once_with(
+            server="frbdata.finma.ch",
+            database="GBB_Reporting",
+            credentials_file=None
+        )
+        mock_db_instance.execute_query.assert_called_once_with("SELECT * FROM test;")
 
 
 class TestORSADocumentSourcerMetadata:

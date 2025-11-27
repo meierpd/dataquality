@@ -3,7 +3,9 @@
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import Optional, Any, Dict
+from pathlib import Path
 import logging
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -203,3 +205,166 @@ class InMemoryDatabaseWriter(DatabaseWriter):
         self.stored_results.clear()
         self.results_buffer.clear()
         logger.info("Cleared all in-memory storage")
+
+
+class MSSQLDatabaseWriter(DatabaseWriter):
+    """MSSQL implementation of DatabaseWriter using DatabaseManager.
+    
+    Writes check results to GBI_REPORTING.gbi.orsa_analysis_data table.
+    """
+    
+    def __init__(
+        self,
+        server: str = "dwhdata.finma.ch",
+        database: str = "GBI_REPORTING",
+        schema: str = "gbi",
+        table_name: str = "orsa_analysis_data",
+        credentials_file: Optional[Path] = None
+    ):
+        """Initialize the MSSQL database writer.
+        
+        Args:
+            server: Database server hostname
+            database: Database name
+            schema: Database schema
+            table_name: Table name for storing results
+            credentials_file: Path to credentials.env file
+        """
+        super().__init__()
+        from orsa_analysis.core.database_manager import DatabaseManager
+        
+        self.db_manager = DatabaseManager(
+            server=server,
+            database=database,
+            credentials_file=credentials_file
+        )
+        self.schema = schema
+        self.table_name = table_name
+        
+        # Test connection
+        if not self.db_manager.test_connection():
+            logger.warning("Database connection test failed")
+    
+    def write_results(self, results: list[CheckResult]) -> int:
+        """Write check results to MSSQL database.
+        
+        Args:
+            results: List of CheckResult objects to write
+            
+        Returns:
+            Number of records written
+            
+        Raises:
+            Exception: If database write fails
+        """
+        if not results:
+            logger.info("No results to write")
+            return 0
+        
+        # Convert results to DataFrame
+        data = []
+        for result in results:
+            data.append({
+                "institute_id": result.institute_id,
+                "file_name": result.file_name,
+                "file_hash": result.file_hash,
+                "version": result.version_number,
+                "check_name": result.check_name,
+                "check_description": result.check_description,
+                "outcome_bool": int(result.outcome_bool),  # Convert bool to int for BIT type
+                "outcome_numeric": result.outcome_numeric,
+                "processed_timestamp": result.processed_at,
+            })
+        
+        df = pd.DataFrame(data)
+        
+        try:
+            self.db_manager.write_dataframe(
+                df=df,
+                table_name=self.table_name,
+                schema=self.schema,
+                if_exists="append"
+            )
+            logger.info(f"Successfully wrote {len(results)} results to {self.schema}.{self.table_name}")
+            return len(results)
+        except Exception as e:
+            logger.error(f"Failed to write results to database: {e}")
+            raise
+    
+    def get_existing_versions(self) -> list[Dict[str, Any]]:
+        """Retrieve existing version information from the database.
+        
+        Returns:
+            List of dicts with institute_id, file_hash, and version_number
+        """
+        try:
+            query = f"""
+                SELECT DISTINCT 
+                    institute_id,
+                    file_hash,
+                    MAX(version) as version_number
+                FROM {self.schema}.{self.table_name}
+                GROUP BY institute_id, file_hash
+            """
+            df = self.db_manager.execute_query(query)
+            return df.to_dict('records')
+        except Exception as e:
+            logger.error(f"Failed to retrieve existing versions: {e}")
+            return []
+    
+    def get_results_for_institute(
+        self, institute_id: str, version: Optional[int] = None
+    ) -> list[CheckResult]:
+        """Retrieve check results for a specific institute from database.
+        
+        Args:
+            institute_id: Identifier for the institute
+            version: Optional version number to filter by
+            
+        Returns:
+            List of CheckResult objects
+        """
+        try:
+            query = f"""
+                SELECT 
+                    institute_id,
+                    file_name,
+                    file_hash,
+                    version as version_number,
+                    check_name,
+                    check_description,
+                    outcome_bool,
+                    outcome_numeric,
+                    processed_timestamp as processed_at
+                FROM {self.schema}.{self.table_name}
+                WHERE institute_id = '{institute_id}'
+            """
+            
+            if version is not None:
+                query += f" AND version = {version}"
+            
+            df = self.db_manager.execute_query(query)
+            
+            results = []
+            for _, row in df.iterrows():
+                results.append(CheckResult(
+                    institute_id=row["institute_id"],
+                    file_name=row["file_name"],
+                    file_hash=row["file_hash"],
+                    version_number=int(row["version_number"]),
+                    check_name=row["check_name"],
+                    check_description=row["check_description"],
+                    outcome_bool=bool(row["outcome_bool"]),
+                    outcome_numeric=row["outcome_numeric"] if pd.notna(row["outcome_numeric"]) else None,
+                    processed_at=row["processed_at"],
+                ))
+            
+            return results
+        except Exception as e:
+            logger.error(f"Failed to retrieve results for institute {institute_id}: {e}")
+            return []
+    
+    def close(self) -> None:
+        """Close the database connection."""
+        if self.db_manager:
+            self.db_manager.close()

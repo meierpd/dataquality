@@ -12,15 +12,18 @@ Main components:
 __version__ = "0.1.0"
 
 from orsa_analysis.core.processor import DocumentProcessor
-from orsa_analysis.core.db import CheckResult, DatabaseWriter, InMemoryDatabaseWriter
+from orsa_analysis.core.db import CheckResult, DatabaseWriter, InMemoryDatabaseWriter, MSSQLDatabaseWriter
 from orsa_analysis.core.versioning import VersionManager
 from orsa_analysis.core.reader import ExcelReader
+from orsa_analysis.core.database_manager import DatabaseManager
 
 __all__ = [
     "DocumentProcessor",
     "CheckResult",
     "DatabaseWriter",
     "InMemoryDatabaseWriter",
+    "MSSQLDatabaseWriter",
+    "DatabaseManager",
     "VersionManager",
     "ExcelReader",
 ]
