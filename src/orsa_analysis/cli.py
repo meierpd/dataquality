@@ -43,13 +43,8 @@ def process_from_sourcer(
     logger.info(f"Force reprocess: {force_reprocess}")
 
     try:
-        # Initialize database manager for MSSQL
-        connection_string = (
-            "mssql+pyodbc://frbdata.finma.ch/GBI_REPORTING"
-            "?driver=ODBC+Driver+17+for+SQL+Server"
-            "&Trusted_Connection=yes"
-        )
-        db_manager = DatabaseManager(connection_string)
+        # Initialize database manager - it will handle credentials automatically
+        db_manager = DatabaseManager()
         
         # Initialize pipeline
         pipeline = ORSAPipeline(db_manager, force_reprocess=force_reprocess)

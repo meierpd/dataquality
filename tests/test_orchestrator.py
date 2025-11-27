@@ -117,7 +117,11 @@ class TestORSAPipeline:
         assert summary["files_processed"] == 1
         assert summary["files_skipped"] == 0
         assert summary["files_failed"] == 0
-        assert summary["checks_run"] > 0
+        assert summary["total_checks"] > 0
+        assert summary["checks_passed"] >= 0
+        assert summary["checks_failed"] >= 0
+        assert summary["checks_passed"] + summary["checks_failed"] == summary["total_checks"]
+        assert 0.0 <= summary["pass_rate"] <= 1.0
         assert "INST001" in summary["institutes"]
         assert "processing_time" in summary
         assert summary["processing_time"] >= 0

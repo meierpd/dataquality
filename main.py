@@ -43,20 +43,8 @@ def process_from_sourcer(
     logger.info(f"Force reprocess: {force_reprocess}")
 
     try:
-        # Initialize database manager (writes to GBI_REPORTING.gbi.orsa_analysis_data)
-        # Load database connection from credentials file
-        from dotenv import dotenv_values
-        
-        creds = dotenv_values(credentials_file)
-        server = creds.get("DB_SERVER", "frbdata.finma.ch")
-        database = creds.get("DB_DATABASE", "GBI_REPORTING")
-        
-        connection_string = (
-            f"mssql+pyodbc://{server}/{database}"
-            "?driver=ODBC+Driver+17+for+SQL+Server"
-            "&Trusted_Connection=yes"
-        )
-        db_manager = DatabaseManager(connection_string)
+        # Initialize database manager - it will handle credentials automatically
+        db_manager = DatabaseManager()
         
         # Initialize pipeline
         pipeline = ORSAPipeline(db_manager, force_reprocess=force_reprocess)

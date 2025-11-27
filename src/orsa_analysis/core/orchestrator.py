@@ -52,6 +52,8 @@ class ORSAPipeline:
             "files_skipped": 0,
             "files_failed": 0,
             "checks_run": 0,
+            "checks_passed": 0,
+            "checks_failed": 0,
             "start_time": None,
             "end_time": None,
         }
@@ -80,7 +82,10 @@ class ORSAPipeline:
                 - files_processed: Number of files successfully processed
                 - files_skipped: Number of files skipped (cached)
                 - files_failed: Number of files that failed processing
-                - checks_run: Total number of quality checks executed
+                - total_checks: Total number of quality checks executed
+                - checks_passed: Number of checks that passed
+                - checks_failed: Number of checks that failed
+                - pass_rate: Ratio of passed checks (0.0 to 1.0)
                 - institutes: List of unique institute IDs processed
                 - processing_time: Time taken in seconds
         
@@ -134,6 +139,13 @@ class ORSAPipeline:
                 self.processing_stats["files_processed"] += 1
                 self.processing_stats["checks_run"] += len(check_results)
                 
+                # Count passed/failed checks
+                for check_result in check_results:
+                    if check_result.outcome_bool:
+                        self.processing_stats["checks_passed"] += 1
+                    else:
+                        self.processing_stats["checks_failed"] += 1
+                
                 logger.info(
                     f"Completed {doc_name}: version {version_info.version_number}, "
                     f"{len(check_results)} checks run"
@@ -153,11 +165,19 @@ class ORSAPipeline:
             self.processing_stats["end_time"] - self.processing_stats["start_time"]
         ).total_seconds()
         
+        # Calculate pass rate
+        total_checks = self.processing_stats["checks_run"]
+        checks_passed = self.processing_stats["checks_passed"]
+        pass_rate = checks_passed / total_checks if total_checks > 0 else 0.0
+        
         summary = {
             "files_processed": self.processing_stats["files_processed"],
             "files_skipped": self.processing_stats["files_skipped"],
             "files_failed": self.processing_stats["files_failed"],
-            "checks_run": self.processing_stats["checks_run"],
+            "total_checks": total_checks,
+            "checks_passed": checks_passed,
+            "checks_failed": self.processing_stats["checks_failed"],
+            "pass_rate": pass_rate,
             "institutes": self.processing_stats["institutes"],
             "processing_time": processing_time,
         }
