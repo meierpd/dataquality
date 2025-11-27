@@ -10,10 +10,11 @@ This project provides an automated way to validate Excel files submitted by inst
 * **Automatic Versioning**: Version assignment per institute based on file content changes
 * **Modular Check System**: Extensible Python-based quality checks with simple registration
 * **Multi-Language Support**: Automatic detection and handling of German, English, and French Excel sheet names
+* **Report Generation**: Automated Excel report creation combining check results with source documents
 * **Database Output**: Denormalized qc_results table ready for MSSQL storage
 * **Force Reprocess Mode**: Option to reprocess files regardless of cache status
 * **ORSADocumentSourcer Integration**: Direct integration with document sourcing system
-* **Comprehensive Testing**: Full unit test coverage for all modules
+* **Comprehensive Testing**: Full unit test coverage for all modules (175 tests)
 
 ## Architecture
 
@@ -49,6 +50,11 @@ dataquality/
       sourcing/           # Document sourcing
         __init__.py
         document_sourcer.py  # ORSADocumentSourcer
+      reporting/          # Report generation
+        __init__.py
+        check_mapper.py   # Check to cell mapping
+        template_manager.py  # Excel template operations
+        report_generator.py  # Report orchestration
   data/
     orsa_response_files/  # Downloaded documents storage
   sql/
@@ -77,6 +83,8 @@ The package can be used as a library or via the command-line interface.
 
 ### Command-Line Usage
 
+**Basic Processing:**
+
 ```bash
 # Process ORSA documents from sourcer (writes to MSSQL)
 orsa-qc --verbose
@@ -94,13 +102,38 @@ orsa-qc --credentials /path/to/credentials.env
 orsa-qc --berichtsjahr 2027 --verbose
 ```
 
+**Report Generation:**
+
+```bash
+# Process documents AND generate reports in one command
+orsa-qc --generate-reports --verbose
+
+# Specify custom output directory and template
+orsa-qc --generate-reports --output-dir ./my_reports --template ./my_template.xlsx
+
+# Generate reports only (without running checks) from existing database results
+orsa-qc --reports-only --verbose
+
+# Generate report for a specific institute
+orsa-qc --reports-only --institute INST001 --verbose
+
+# Force overwrite existing reports
+orsa-qc --reports-only --force-overwrite --verbose
+
+# Combine: process 2027 documents and generate reports
+orsa-qc --berichtsjahr 2027 --generate-reports --verbose
+```
+
 Or run main.py directly:
 
 ```bash
 python main.py --verbose
 
-# Specify reporting year
-python main.py --berichtsjahr 2026 --verbose
+# Process and generate reports
+python main.py --berichtsjahr 2026 --generate-reports --verbose
+
+# Generate reports only
+python main.py --reports-only --verbose
 ```
 
 ### Library Usage
@@ -241,6 +274,146 @@ The `berichtsjahr` parameter allows you to specify which reporting year to proce
 While the GeschaeftsNr (business number) is unique per institute and year, filtering by 
 berichtsjahr makes it easier to focus on specific reporting periods. Over time, as multiple 
 years accumulate, the GeschaeftsNr remains the unique identifier.
+
+## Report Generation
+
+The reporting module generates Excel reports that combine check results from the database with template and source documents.
+
+### Report Structure
+
+Generated reports contain:
+1. **Template Sheets First**: The "Auswertung" sheet and other template sheets appear first
+2. **Check Results**: Check outcomes are written to specific cells (e.g., SST check → C8)
+3. **Source Sheets**: All sheets from the original ORSA document are appended
+
+### Report Generation Workflow
+
+**Via CLI:**
+
+```bash
+# Option 1: Process and generate reports in one command
+orsa-qc --berichtsjahr 2026 --generate-reports --verbose
+
+# Option 2: Generate reports separately from existing database results
+orsa-qc --reports-only --verbose
+
+# Generate report for specific institute
+orsa-qc --reports-only --institute INST001 --verbose
+
+# Specify custom output directory and template
+orsa-qc --reports-only --output-dir ./my_reports --template ./my_template.xlsx
+```
+
+**Via Library:**
+
+```python
+from pathlib import Path
+from orsa_analysis import DatabaseManager
+from orsa_analysis.reporting import ReportGenerator
+
+# Initialize database and report generator
+db_manager = DatabaseManager()
+report_gen = ReportGenerator(
+    db_manager=db_manager,
+    template_path=Path("data/auswertungs_template.xlsx"),
+    output_dir=Path("reports")
+)
+
+# Generate report for single institute
+report_path = report_gen.generate_report(
+    institute_id="INST001",
+    source_file_path=Path("data/orsa_response_files/INST001_orsa.xlsx"),
+    force_overwrite=False
+)
+
+# Generate reports for all institutes with results
+source_files = {
+    "INST001": Path("data/orsa_response_files/INST001_orsa.xlsx"),
+    "INST002": Path("data/orsa_response_files/INST002_orsa.xlsx"),
+}
+report_paths = report_gen.generate_all_reports(source_files=source_files)
+
+print(f"Generated {len(report_paths)} reports")
+```
+
+### Check to Cell Mapping
+
+The system maps check results to specific cells in the output Excel file. This mapping is defined in `check_mapper.py`:
+
+```python
+from orsa_analysis.reporting import CheckMapper, CellMapping
+
+# View all mapped checks
+mapper = CheckMapper()
+checks = mapper.get_mapped_checks()
+print(f"Mapped checks: {checks}")
+
+# Get cell location for a check
+mapping = mapper.get_cell_location("check_sst_three_years_filled")
+print(f"SST check -> {mapping.sheet_name}!{mapping.cell_address}")
+
+# Add custom mapping
+mapper.add_mapping(
+    "my_custom_check",
+    CellMapping(
+        cell_address="D15",
+        value_type="outcome_bool",
+        format_rule="boolean_to_text",
+        sheet_name="Auswertung"
+    )
+)
+```
+
+### Supported Format Rules
+
+The system includes several built-in format rules for transforming check results:
+
+- `boolean_to_text`: True → "Pass", False → "Fail"
+- `boolean_to_yes_no`: True → "Yes", False → "No"
+- `boolean_inverse`: True → "Fail", False → "Pass" (for negative checks)
+- `numeric_with_decimals`: Formats numbers with 2 decimal places
+- `percentage`: Formats as percentage (0.856 → "85.6%")
+- `count`: Converts to integer count
+- `raw`: No transformation (passes value as-is)
+
+### Report Versioning
+
+Reports are automatically versioned based on the check results version in the database:
+- Filename format: `{institute_id}_ORSA_Report_v{version}.xlsx`
+- By default, existing reports are not overwritten
+- Use `force_overwrite=True` to regenerate existing reports
+
+### Customizing Reports
+
+**Custom Cell Mappings:**
+
+```python
+from orsa_analysis.reporting import CheckMapper, CellMapping
+
+# Create custom mappings
+custom_mappings = {
+    "check_sst_three_years_filled": CellMapping(
+        cell_address="C8",
+        value_type="outcome_bool",
+        format_rule="boolean_inverse"
+    ),
+    "check_has_sheets": CellMapping(
+        cell_address="C10",
+        value_type="outcome_bool",
+        format_rule="boolean_to_yes_no"
+    ),
+}
+
+mapper = CheckMapper(mappings=custom_mappings)
+```
+
+**Custom Template:**
+
+Place your custom template Excel file with an "Auswertung" sheet and specify its path:
+
+```bash
+orsa-qc --reports-only --template /path/to/custom_template.xlsx
+```
 
 ## Multi-Language Support
 
