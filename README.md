@@ -79,17 +79,26 @@ The package can be used as a library or via the command-line interface.
 # Process ORSA documents from sourcer (writes to MSSQL)
 orsa-qc --verbose
 
+# Process documents for a specific reporting year (default: 2026)
+orsa-qc --berichtsjahr 2026 --verbose
+
 # Force reprocess all files
 orsa-qc --force --verbose
 
 # Use custom credentials file
 orsa-qc --credentials /path/to/credentials.env
+
+# Combine options: process 2027 documents with verbose output
+orsa-qc --berichtsjahr 2027 --verbose
 ```
 
 Or run main.py directly:
 
 ```bash
 python main.py --verbose
+
+# Specify reporting year
+python main.py --berichtsjahr 2026 --verbose
 ```
 
 ### Library Usage
@@ -106,7 +115,7 @@ db_manager = DatabaseManager("mssql+pyodbc://server/db?driver=ODBC+Driver+17+for
 pipeline = ORSAPipeline(db_manager, force_reprocess=False)
 
 # Option 1: Process from document sourcer
-sourcer = ORSADocumentSourcer()
+sourcer = ORSADocumentSourcer(berichtsjahr=2026)
 summary = pipeline.process_from_sourcer(sourcer)
 
 # Option 2: Process specific files
@@ -220,9 +229,16 @@ FINMA_PASSWORD=your_password
 
 3. The sourcer will automatically:
    - Download documents from the FINMA database
-   - Filter for ORSA documents from 2026 onwards
+   - Filter for ORSA documents matching the specified reporting year (Berichtsjahr)
+   - Default reporting year is 2026, configurable via `--berichtsjahr` argument
    - Store files in `data/orsa_response_files/` directory
    - Return document paths for processing
+   
+**Note on Reporting Year:**
+The `berichtsjahr` parameter allows you to specify which reporting year to process. 
+While the GeschaeftsNr (business number) is unique per institute and year, filtering by 
+berichtsjahr makes it easier to focus on specific reporting periods. Over time, as multiple 
+years accumulate, the GeschaeftsNr remains the unique identifier.
 
 ## Adding a New Check
 
@@ -400,12 +416,29 @@ Quality check registry with pre-built checks:
 ## Integration Notes
 
 ### ORSADocumentSourcer Output Format
-The processor expects `List[Tuple[str, Path]]` from `sourcer.load()`:
+The processor expects `List[Tuple[str, Path, str]]` from `sourcer.load()`:
 ```python
 [
-    ("INST001_report.xlsx", Path("/path/to/file1.xlsx")),
-    ("INST002_report.xlsx", Path("/path/to/file2.xlsx")),
+    ("INST001_report.xlsx", Path("/path/to/file1.xlsx"), "GNR123"),
+    ("INST002_report.xlsx", Path("/path/to/file2.xlsx"), "GNR456"),
 ]
+```
+
+### Using ORSADocumentSourcer with Berichtsjahr
+
+```python
+from orsa_analysis.sourcing import ORSADocumentSourcer
+
+# Process documents for 2026 (default)
+sourcer = ORSADocumentSourcer()
+documents = sourcer.load()
+
+# Process documents for a different year
+sourcer_2027 = ORSADocumentSourcer(berichtsjahr=2027)
+documents_2027 = sourcer_2027.load()
+
+# Use with pipeline
+pipeline.process_from_sourcer(sourcer_2027)
 ```
 
 ### Institute ID Extraction

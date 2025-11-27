@@ -15,6 +15,7 @@ Create a Python-based tool to perform automated quality control on Excel files s
 * Excel file for each institute.
 * Institute identifier.
 * Directory or list of downloaded files.
+* Berichtsjahr (reporting year) - configurable parameter to filter documents for a specific year (default: 2026).
 
 ## 4. Core Requirements
 
@@ -104,6 +105,13 @@ Generated based on fixed template. Columns:
 
 * Using openpyxl.
 * Template stored in `templates/`.
+
+### 7.3 Document Sourcing
+
+* ORSADocumentSourcer handles automatic document retrieval from FINMA database.
+* Filtering by Berichtsjahr (reporting year) to select relevant documents.
+* Default Berichtsjahr is 2026, configurable via command-line or API.
+* GeschaeftsNr provides unique identification per institute and year.
 
 ## 8. Processing Modes
 

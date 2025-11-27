@@ -66,6 +66,12 @@ class TestORSADocumentSourcerInit:
         sourcer = ORSADocumentSourcer()
         # Should initialize without errors even if file doesn't exist
         assert sourcer.cred_file.name == "credentials.env"
+        assert sourcer.berichtsjahr == 2026  # Default berichtsjahr
+
+    def test_init_with_custom_berichtsjahr(self):
+        """Test initialization with custom berichtsjahr."""
+        sourcer = ORSADocumentSourcer(berichtsjahr=2027)
+        assert sourcer.berichtsjahr == 2027
 
     def test_directory_structure(self):
         """Test that directory paths are correctly calculated."""
@@ -178,14 +184,23 @@ class TestORSADocumentSourcerMetadata:
 class TestORSADocumentSourcerFiltering:
     """Tests for document filtering."""
 
-    def test_filter_relevant_orsa_2026_and_above(self, sample_metadata_df):
-        """Test filtering for ORSA documents year >= 2026."""
+    def test_filter_relevant_orsa_2026_default(self, sample_metadata_df):
+        """Test filtering for ORSA documents year == 2026 (default)."""
         sourcer = ORSADocumentSourcer()
         result = sourcer.filter_relevant(sample_metadata_df)
 
-        assert len(result) == 2  # Only 2026 and 2027 ORSA documents
+        assert len(result) == 1  # Only 2026 ORSA document
         assert all("_ORSA-Formular" in name for name in result["DokumentName"])
-        assert all(year >= 2026 for year in result["reporting_year"])
+        assert all(year == 2026 for year in result["reporting_year"])
+
+    def test_filter_relevant_orsa_2027(self, sample_metadata_df):
+        """Test filtering for ORSA documents year == 2027."""
+        sourcer = ORSADocumentSourcer(berichtsjahr=2027)
+        result = sourcer.filter_relevant(sample_metadata_df)
+
+        assert len(result) == 1  # Only 2027 ORSA document
+        assert all("_ORSA-Formular" in name for name in result["DokumentName"])
+        assert all(year == 2027 for year in result["reporting_year"])
 
     def test_filter_relevant_empty_dataframe(self):
         """Test filtering with empty DataFrame."""
@@ -230,11 +245,31 @@ class TestORSADocumentSourcerFiltering:
             }
         )
 
-        sourcer = ORSADocumentSourcer()
+        sourcer = ORSADocumentSourcer(berichtsjahr=2026)
         result = sourcer.filter_relevant(df)
 
-        assert len(result) == 3
-        assert list(result["reporting_year"]) == [2026.0, 2027.0, 2028.0]
+        # Now filters only for berichtsjahr == 2026
+        assert len(result) == 1
+        assert list(result["reporting_year"]) == [2026.0]
+        
+    def test_filter_relevant_year_extraction_multiple_years(self):
+        """Test that only the specified berichtsjahr is returned."""
+        df = pd.DataFrame(
+            {
+                "DokumentName": [
+                    "2026_ORSA-Formular_Test.xlsx",
+                    "Test_2027_ORSA-Formular.xlsx",
+                    "2028_Test_ORSA-Formular.xlsx",
+                ],
+                "DokumentLink": ["http://example.com/doc.xlsx"] * 3,
+            }
+        )
+
+        # Test for 2027
+        sourcer = ORSADocumentSourcer(berichtsjahr=2027)
+        result = sourcer.filter_relevant(df)
+        assert len(result) == 1
+        assert list(result["reporting_year"]) == [2027.0]
 
 
 class TestORSADocumentSourcerDownload:

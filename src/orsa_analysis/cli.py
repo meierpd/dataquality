@@ -28,7 +28,8 @@ def setup_logging(verbose: bool = False) -> None:
 def process_from_sourcer(
     force_reprocess: bool = False,
     verbose: bool = False,
-    credentials_file: str = "credentials.env"
+    credentials_file: str = "credentials.env",
+    berichtsjahr: int = 2026
 ) -> None:
     """Process documents from ORSADocumentSourcer and write to MSSQL database.
 
@@ -36,11 +37,13 @@ def process_from_sourcer(
         force_reprocess: If True, reprocess all files regardless of cache
         verbose: If True, enable verbose logging
         credentials_file: Path to credentials.env file
+        berichtsjahr: Reporting year to filter documents (default: 2026)
     """
     setup_logging(verbose)
 
     logger.info("Starting ORSA data quality control processing")
     logger.info(f"Force reprocess: {force_reprocess}")
+    logger.info(f"Berichtsjahr: {berichtsjahr}")
 
     try:
         # Initialize database manager - it will handle credentials automatically
@@ -50,7 +53,7 @@ def process_from_sourcer(
         pipeline = ORSAPipeline(db_manager, force_reprocess=force_reprocess)
         
         # Initialize document sourcer
-        sourcer = ORSADocumentSourcer(cred_file=credentials_file)
+        sourcer = ORSADocumentSourcer(cred_file=credentials_file, berichtsjahr=berichtsjahr)
         
         logger.info("Loading documents from FINMA database...")
         
@@ -100,6 +103,13 @@ def main():
         default="credentials.env",
         help="Path to credentials file (default: credentials.env)",
     )
+    parser.add_argument(
+        "--berichtsjahr",
+        "-b",
+        type=int,
+        default=2026,
+        help="Reporting year to filter documents (default: 2026)",
+    )
 
     args = parser.parse_args()
 
@@ -107,6 +117,7 @@ def main():
         force_reprocess=args.force,
         verbose=args.verbose,
         credentials_file=args.credentials,
+        berichtsjahr=args.berichtsjahr,
     )
 
 
