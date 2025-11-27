@@ -29,28 +29,30 @@ This project provides an automated way to validate Excel files submitted by inst
 ## Directory Structure
 
 ```
-orsa_analysis/
+dataquality/
   src/
     orsa_analysis/
       __init__.py
       cli.py              # Command-line interface  
       core/               # Core processing logic
         __init__.py
-        processor.py      # Main document processor
+        processor.py      # Document processor with versioning
+        orchestrator.py   # Pipeline orchestration & caching control
         reader.py         # Excel file reader
-        versioning.py     # File versioning & caching
-        db.py             # Database writers (InMemory, MSSQL)
-        database_manager.py  # Database connection manager
+        versioning.py     # File versioning & hash-based caching
+        database_manager.py  # Simplified database manager & CheckResult
       checks/             # Quality check rules
         __init__.py
         rules.py          # Check implementations
       sourcing/           # Document sourcing
         __init__.py
         document_sourcer.py  # ORSADocumentSourcer
+  data/
+    orsa_response_files/  # Downloaded documents storage
   sql/
     source_orsa_dokument_metadata.sql    # Query for document metadata
     create_table_orsa_analysis_data.sql  # Database table schema
-  tests/                # 103 comprehensive unit tests
+  tests/                # 109 comprehensive unit tests
   main.py               # Main entry point for production use
   pyproject.toml        # Modern Python packaging
   README.md
@@ -90,55 +92,118 @@ Or run main.py directly:
 python main.py --verbose
 ```
 
-### Library Usage with ORSADocumentSourcer and MSSQL
+### Library Usage
+
+**Simple Pipeline Usage:**
 
 ```python
-from orsa_analysis import DocumentProcessor, MSSQLDatabaseWriter
+from orsa_analysis import ORSAPipeline, DatabaseManager
 from orsa_analysis.sourcing import ORSADocumentSourcer
+from pathlib import Path
 
-# Initialize MSSQL database writer
-db_writer = MSSQLDatabaseWriter(
-    server="frbdata.finma.ch",
-    database="GBI_REPORTING"
-)
+# Initialize pipeline with database
+db_manager = DatabaseManager("mssql+pyodbc://server/db?driver=ODBC+Driver+17+for+SQL+Server")
+pipeline = ORSAPipeline(db_manager, force_reprocess=False)
 
-# Initialize processor
-processor = DocumentProcessor(db_writer, force_reprocess=False)
-
-# Source documents from database
+# Option 1: Process from document sourcer
 sourcer = ORSADocumentSourcer()
-documents = sourcer.load()  # Returns List[Tuple[str, Path]]
+summary = pipeline.process_from_sourcer(sourcer)
 
-# Process all documents
-for name, path in documents:
-    # Extract institute ID from filename (e.g., "INS001_ORSA_2026.xlsx")
-    institute_id = name.split('_')[0]
-    results = processor.process_file(path, institute_id=institute_id)
+# Option 2: Process specific files
+documents = [
+    ("INST001_report.xlsx", Path("data/INST001_report.xlsx")),
+    ("INST002_report.xlsx", Path("data/INST002_report.xlsx")),
+]
+summary = pipeline.process_documents(documents)
 
-# Write all results to database
-db_writer.write_results()
+print(f"Processed: {summary['files_processed']}, Skipped: {summary['files_skipped']}")
+print(f"Institutes: {summary['institutes']}")
 
-# Get processing summary
-summary = processor.get_processing_summary()
-print(f"Total files: {summary['total_files']}")
-print(f"Processed: {summary['processed']}")
-print(f"Cached: {summary['cached']}")
-print(f"Pass rate: {summary['pass_rate']:.1%}")
+# Get detailed summary
+full_summary = pipeline.generate_summary()
+pipeline.close()
 ```
 
-For testing or development without a database:
+**Advanced Caching Control:**
 
 ```python
-from orsa_analysis import DocumentProcessor, InMemoryDatabaseWriter
+from orsa_analysis import CachedDocumentProcessor, DatabaseManager
+from pathlib import Path
 
-# Use in-memory writer for testing
-db_writer = InMemoryDatabaseWriter()
-processor = DocumentProcessor(db_writer)
+# Initialize with caching control
+db_manager = DatabaseManager("mssql+pyodbc://server/db")
+processor = CachedDocumentProcessor(db_manager, cache_enabled=True)
 
-# ... process files ...
+# Check cache status for a file
+file_path = Path("data/INST001_report.xlsx")
+status = processor.get_cache_status("INST001", file_path)
+if status["is_cached"]:
+    print(f"File cached with version {status['version_number']}")
 
-# Access results in memory
-all_results = db_writer.get_results()
+# Get cache statistics
+stats = processor.get_cache_statistics()
+print(f"Cached: {stats['total_institutes']} institutes, {stats['total_versions']} versions")
+
+# Invalidate cache for specific institute
+processor.invalidate_cache("INST001")
+
+# Or invalidate entire cache
+processor.invalidate_cache()
+```
+
+**Direct Processor Usage (Lower Level):**
+
+```python
+from orsa_analysis import DocumentProcessor, DatabaseManager
+from pathlib import Path
+
+# Initialize components
+db_manager = DatabaseManager("mssql+pyodbc://server/db")
+processor = DocumentProcessor(db_manager, force_reprocess=False)
+
+# Process single file
+file_path = Path("data/INST001_report.xlsx")
+version_info, results = processor.process_file("INST001", file_path)
+
+print(f"Processed version {version_info.version_number}")
+print(f"Ran {len(results)} checks")
+
+# Close database connection
+db_manager.close()
+```
+
+## Caching & Versioning
+
+The system uses SHA-256 file hashing for intelligent caching:
+
+- **Automatic Caching**: Files are hashed on first processing. Subsequent runs skip unchanged files.
+- **Version Tracking**: Each unique file content gets a new version number per institute.
+- **Force Reprocess**: Use `force_reprocess=True` to override caching and reprocess all files.
+- **Cache Inspection**: `CachedDocumentProcessor` provides detailed cache introspection and control.
+
+**How it works:**
+
+1. File is hashed (SHA-256) on first encounter
+2. Hash is checked against database of processed versions
+3. If hash exists → Skip processing (unless forced)
+4. If hash is new → Assign new version number and process
+5. Results stored in database with version metadata
+
+**Cache Control:**
+
+```python
+from orsa_analysis import CachedDocumentProcessor, DatabaseManager
+
+processor = CachedDocumentProcessor(DatabaseManager("..."))
+
+# Check if file is cached
+status = processor.get_cache_status("INST001", file_path)
+
+# View cache statistics
+stats = processor.get_cache_statistics()
+
+# Invalidate specific institute cache
+processor.invalidate_cache("INST001")
 ```
 
 ### ORSADocumentSourcer Setup
@@ -156,7 +221,7 @@ FINMA_PASSWORD=your_password
 3. The sourcer will automatically:
    - Download documents from the FINMA database
    - Filter for ORSA documents from 2026 onwards
-   - Store files in `orsa_response_files/` directory
+   - Store files in `data/orsa_response_files/` directory
    - Return document paths for processing
 
 ## Adding a New Check
