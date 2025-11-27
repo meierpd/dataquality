@@ -139,10 +139,24 @@ class ORSADocumentSourcer:
         for idx, row in document_df.iterrows():
             name = row["DokumentName"]
             link = row["DokumentLink"]
+            
             # Extract scalar values from Series to avoid "unhashable type: 'Series'" error
-            # Use bracket notation and convert to Python types
-            geschaeft_nr = str(row["GeschaeftNr"]) if "GeschaeftNr" in row and pd.notna(row["GeschaeftNr"]) else None
-            finma_id = str(row["FinmaID"]) if "FinmaID" in row and pd.notna(row["FinmaID"]) else None
+            # Handle cases where row[column] might return a Series (e.g., duplicate column names)
+            def extract_scalar(row, column_name):
+                """Extract scalar value from row, handling Series and NaN cases."""
+                if column_name not in row.index:
+                    return None
+                value = row[column_name]
+                # If value is a Series (e.g., duplicate columns), take the first value
+                if isinstance(value, pd.Series):
+                    value = value.iloc[0] if len(value) > 0 else None
+                # Check for NaN/None
+                if pd.isna(value):
+                    return None
+                return str(value)
+            
+            geschaeft_nr = extract_scalar(row, "GeschaeftNr")
+            finma_id = extract_scalar(row, "FinmaID")
             out = target_dir / name
             
             try:
