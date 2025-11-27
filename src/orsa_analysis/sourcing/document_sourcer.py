@@ -33,18 +33,22 @@ class ORSADocumentSourcer:
         base_dir: Base directory of the sourcing module
         cred_file: Path to credentials file
         default_target_dir: Directory where documents are downloaded
+        berichtsjahr: Reporting year to filter documents for
     """
 
-    def __init__(self, cred_file: str = "credentials.env"):
+    def __init__(self, cred_file: str = "credentials.env", berichtsjahr: int = 2026):
         """Initialize the document sourcer.
         
         Args:
             cred_file: Name of credentials file (relative to project root)
                 This is passed to DatabaseManager for credential loading.
+            berichtsjahr: Reporting year to filter documents (default: 2026)
         """
         self.base_dir = Path(__file__).resolve().parent
         self.cred_file = self.base_dir.parent.parent.parent / cred_file
         self.default_target_dir = self.base_dir.parent.parent.parent / "data" / "orsa_response_files"
+        self.berichtsjahr = berichtsjahr
+        logger.info(f"Initialized ORSADocumentSourcer for Berichtsjahr {berichtsjahr}")
 
     def _load_query(self, name: str) -> str:
         """Load SQL query from file.
@@ -101,7 +105,7 @@ class ORSADocumentSourcer:
         
         Filters for:
         - Documents containing "_ORSA-Formular" in name
-        - Reporting year >= 2026
+        - Reporting year matching the specified berichtsjahr
         
         Args:
             df: DataFrame with document metadata
@@ -114,12 +118,14 @@ class ORSADocumentSourcer:
             df["DokumentName"].str.extract(r"(\d{4})")[0].astype(float)
         )
 
-        # Filter ORSA docs and year >= 2026
+        # Filter ORSA docs and year matching berichtsjahr
         mask = df["DokumentName"].str.lower().str.contains("_orsa-formular") & (
-            df["reporting_year"] >= 2026
+            df["reporting_year"] == self.berichtsjahr
         )
         filtered_df = df[mask]
-        logger.info(f"Filtered to {len(filtered_df)} relevant ORSA documents")
+        logger.info(
+            f"Filtered to {len(filtered_df)} relevant ORSA documents for Berichtsjahr {self.berichtsjahr}"
+        )
         return filtered_df
 
     def download_documents(
