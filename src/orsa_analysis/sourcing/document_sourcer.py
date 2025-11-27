@@ -88,15 +88,12 @@ class ORSADocumentSourcer:
         """
         from orsa_analysis.core.database_manager import DatabaseManager
         
-        # Set credentials as environment variables for DatabaseManager
-        os.environ["DB_USER"] = "Finma\\" + self.username
-        os.environ["DB_PASSWORD"] = self.password
-        
-        # Create database manager for GBB_Reporting
+        # Create database manager for GBB_Reporting with explicit credentials
         db_manager = DatabaseManager(
             server="frbdata.finma.ch",
             database="GBB_Reporting",
-            credentials_file=None  # Using environment variables
+            username="Finma\\" + self.username,
+            password=self.password
         )
         
         logger.info("Executing query against GBB_Reporting database")

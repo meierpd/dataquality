@@ -185,7 +185,8 @@ class TestORSADocumentSourcerQuery:
         mock_db_manager_class.assert_called_once_with(
             server="frbdata.finma.ch",
             database="GBB_Reporting",
-            credentials_file=None
+            username="Finma\\testuser",
+            password="testpass"
         )
         mock_db_instance.execute_query.assert_called_once_with("SELECT * FROM test;")
 
