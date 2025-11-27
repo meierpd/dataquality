@@ -42,7 +42,7 @@ class ORSADocumentSourcer:
         """
         self.base_dir = Path(__file__).resolve().parent
         self.cred_file = self.base_dir.parent.parent.parent / cred_file
-        self.default_target_dir = self.base_dir.parent.parent.parent / "orsa_response_files"
+        self.default_target_dir = self.base_dir.parent.parent.parent / "data" / "orsa_response_files"
         self._load_credentials()
 
     def _load_credentials(self) -> None:

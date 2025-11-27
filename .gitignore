@@ -55,6 +55,9 @@ htmlcov/
 
 # ORSA response files
 orsa_response_files/
+data/orsa_response_files/*.xlsx
+data/orsa_response_files/*.xlsm
+data/orsa_response_files/*.xls
 
 # Environment variables
 .env
