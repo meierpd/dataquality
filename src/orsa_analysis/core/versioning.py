@@ -2,7 +2,7 @@
 
 import hashlib
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from dataclasses import dataclass
 import logging
 
@@ -141,3 +141,62 @@ class VersionManager:
         if institute_id not in self._version_cache or not self._version_cache[institute_id]:
             return None
         return max(self._version_cache[institute_id].values())
+
+    def get_cache_status(self, institute_id: str, file_path: Path) -> Dict[str, Any]:
+        """Get detailed cache status for a specific file.
+
+        Args:
+            institute_id: Institute identifier
+            file_path: Path to the document file
+
+        Returns:
+            Dictionary containing:
+                - is_cached: Whether file is in cache
+                - file_hash: SHA-256 hash of the file
+                - version_number: Current version number (if cached)
+        """
+        file_hash = self.compute_file_hash(file_path)
+        is_cached = self.is_processed(institute_id, file_hash)
+
+        cache_info = {
+            "is_cached": is_cached,
+            "file_hash": file_hash,
+        }
+
+        if is_cached:
+            version_number = self._version_cache[institute_id][file_hash]
+            cache_info["version_number"] = version_number
+
+        return cache_info
+
+    def invalidate_cache(self, institute_id: Optional[str] = None):
+        """Invalidate cache for specific institute or all institutes.
+
+        Args:
+            institute_id: If provided, only invalidate cache for this institute.
+                         If None, invalidate entire cache.
+        """
+        if institute_id:
+            if institute_id in self._version_cache:
+                del self._version_cache[institute_id]
+                logger.info(f"Invalidated cache for institute {institute_id}")
+        else:
+            self._version_cache.clear()
+            logger.info("Invalidated entire cache")
+
+    def get_cache_statistics(self) -> Dict[str, Any]:
+        """Get statistics about the current cache state.
+
+        Returns:
+            Dictionary with cache metrics:
+                - total_institutes: Number of institutes in cache
+                - total_versions: Total number of cached versions
+                - institutes: List of institute IDs in cache
+        """
+        total_versions = sum(len(hashes) for hashes in self._version_cache.values())
+
+        return {
+            "total_institutes": len(self._version_cache),
+            "total_versions": total_versions,
+            "institutes": sorted(list(self._version_cache.keys())),
+        }
