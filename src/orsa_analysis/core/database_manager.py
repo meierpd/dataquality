@@ -70,11 +70,13 @@ class DatabaseManager:
             db_password = os.environ["DB_PASSWORD"]
             conn_str = f"mssql+pymssql://{db_user}:{db_password}@{self.server}/{self.database}"
             logger.info(f"Using credential-based auth for {self.server}")
+            # pymssql driver doesn't support use_setinputsizes parameter
+            return create_engine(conn_str)
         else:
             conn_str = f"mssql+pyodbc://{self.server}/{self.database}?driver=SQL+Server"
             logger.info(f"Using Windows authentication for {self.server}")
-        
-        return create_engine(conn_str, use_setinputsizes=False)
+            # pyodbc driver supports use_setinputsizes parameter
+            return create_engine(conn_str, use_setinputsizes=False)
     
     def execute_query(self, query: str) -> pd.DataFrame:
         """Execute SQL query and return DataFrame."""
