@@ -59,3 +59,4 @@ orsa_response_files/
 # Environment variables
 .env
 .env.local
+credentials.env

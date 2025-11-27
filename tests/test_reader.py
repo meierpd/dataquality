@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 from openpyxl import Workbook
 
-from core.reader import ExcelReader
+from orsa_analysis.core.reader import ExcelReader
 
 
 @pytest.fixture

@@ -3,7 +3,7 @@
 import pytest
 from datetime import datetime
 
-from core.db import CheckResult, DatabaseWriter, InMemoryDatabaseWriter
+from orsa_analysis.core.db import CheckResult, DatabaseWriter, InMemoryDatabaseWriter
 
 
 @pytest.fixture

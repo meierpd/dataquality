@@ -4,8 +4,8 @@ import pytest
 from pathlib import Path
 from openpyxl import Workbook
 
-from core.processor import DocumentProcessor
-from core.db import InMemoryDatabaseWriter
+from orsa_analysis.core.processor import DocumentProcessor
+from orsa_analysis.core.db import InMemoryDatabaseWriter
 
 
 @pytest.fixture

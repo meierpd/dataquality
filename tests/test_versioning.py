@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from core.versioning import VersionManager, FileVersion
+from orsa_analysis.core.versioning import VersionManager, FileVersion
 
 
 @pytest.fixture

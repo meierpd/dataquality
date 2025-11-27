@@ -29,72 +29,107 @@ This project provides an automated way to validate Excel files submitted by inst
 ## Directory Structure
 
 ```
-project/
-  checks/
-    __init__.py
-    rules.py
-  core/
-    processor.py
-    reader.py
-    versioning.py
-    db.py
-    report.py
+orsa_analysis/
+  src/
+    orsa_analysis/
+      __init__.py
+      cli.py              # Command-line interface
+      core/               # Core processing logic
+        __init__.py
+        processor.py      # Main document processor
+        reader.py         # Excel file reader
+        versioning.py     # File versioning & caching
+        db.py            # Database writers
+        report.py        # Report generation
+      checks/            # Quality check rules
+        __init__.py
+        rules.py          # Check implementations
+      sourcing/          # Document sourcing
+        __init__.py
+        document_sourcer.py  # ORSADocumentSourcer
   templates/
     institute_report_template.xlsx
-  main.py
+  sql/
+    source_orsa_dokument_metadata.sql
+  tests/              # Comprehensive unit tests
+  pyproject.toml      # Modern Python packaging
   README.md
 ```
 
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+# Install in editable mode for development
+pip install -e .
+
+# Or install from repository
+pip install git+https://github.com/meierpd/dataquality.git
 ```
 
-## Usage
+## Quick Start
 
-### As a Library with ORSADocumentSourcer
+The package can be used as a library or via the command-line interface.
+
+### Command-Line Usage
+
+```bash
+# Process Excel files with CLI
+orsa-qc --institute-id INS001 --input-files file1.xlsx file2.xlsx
+```
+
+### Library Usage with ORSADocumentSourcer
 
 ```python
-from dataquality.core.processor import DocumentProcessor
-from dataquality.core.db import InMemoryDatabaseWriter
+from orsa_analysis import DocumentProcessor
+from orsa_analysis.core.db import InMemoryDatabaseWriter
+from orsa_analysis.sourcing import ORSADocumentSourcer
 
-# Initialize components
+# Initialize database writer
 db_writer = InMemoryDatabaseWriter()
+
+# Initialize processor
 processor = DocumentProcessor(db_writer, force_reprocess=False)
 
-# Process documents from ORSADocumentSourcer
-sourcer = ORSADocumentSourcer(username="user", password="pass")
+# Source documents from database
+sourcer = ORSADocumentSourcer()
 documents = sourcer.load()  # Returns List[Tuple[str, Path]]
 
 # Process all documents
-results = processor.process_documents(documents)
+for name, path in documents:
+    results = processor.process_file(path, institute_id="INS001")
 
 # Get processing summary
 summary = processor.get_processing_summary()
 print(f"Total files: {summary['total_files']}")
-print(f"Pass rate: {summary['pass_rate']}")
+print(f"Processed: {summary['processed']}")
+print(f"Cached: {summary['cached']}")
+print(f"Pass rate: {summary['pass_rate']:.1%}")
 
 # Access stored results
 all_results = db_writer.get_results()
 ```
 
-### Command Line Interface
+### ORSADocumentSourcer Setup
 
+To use the document sourcing functionality:
+
+1. Create a `credentials.env` file in the project root:
 ```bash
-# Process all Excel files in a directory
-python -m dataquality.main /path/to/excel/files
-
-# Force reprocess all files
-python -m dataquality.main /path/to/excel/files --force
-
-# Verbose logging
-python -m dataquality.main /path/to/excel/files --verbose
+FINMA_USERNAME=your_username
+FINMA_PASSWORD=your_password
 ```
+
+2. Ensure the SQL query file exists at `sql/source_orsa_dokument_metadata.sql`
+
+3. The sourcer will automatically:
+   - Download documents from the FINMA database
+   - Filter for ORSA documents from 2026 onwards
+   - Store files in `orsa_response_files/` directory
+   - Return document paths for processing
 
 ## Adding a New Check
 
-To add a check, open `checks/rules.py` and define a new function:
+To add a check, open `src/orsa_analysis/checks/rules.py` and define a new function:
 
 ```python
 from openpyxl.workbook.workbook import Workbook
@@ -164,7 +199,7 @@ Power BI connects directly to `qc_results`, which already contains all metadata 
 
 ## Testing
 
-Run the comprehensive test suite:
+Run the comprehensive test suite (103 tests):
 
 ```bash
 # Run all tests
@@ -174,15 +209,19 @@ pytest
 pytest -v
 
 # Run with coverage report
-pytest --cov=dataquality --cov-report=html
+pytest --cov=orsa_analysis --cov-report=html
+
+# Run specific test modules
+pytest tests/test_document_sourcer.py -v
 ```
 
 All modules have full unit test coverage:
 - `tests/test_reader.py` - ExcelReader tests
 - `tests/test_versioning.py` - VersionManager tests
 - `tests/test_db.py` - Database writer tests
-- `tests/test_rules.py` - Check function tests
+- `tests/test_rules.py` - Check function tests (15 checks)
 - `tests/test_processor.py` - DocumentProcessor integration tests
+- `tests/test_document_sourcer.py` - ORSADocumentSourcer tests (22 tests)
 
 ## Module Documentation
 

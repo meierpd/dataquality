@@ -3,7 +3,7 @@
 import pytest
 from openpyxl import Workbook
 
-from checks.rules import (
+from orsa_analysis.checks.rules import (
     check_has_sheets,
     check_no_empty_sheets,
     check_first_sheet_has_data,
