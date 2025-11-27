@@ -5,8 +5,9 @@ from typing import Any, Dict, Optional, Tuple
 
 # Simple mapping: check_name -> (sheet_name, cell_address, value_type)
 # value_type can be: "bool" or "metric"
+# Note: check_name should match the name registered in REGISTERED_CHECKS (rules.py)
 CHECK_MAPPINGS: Dict[str, Tuple[str, str, str]] = {
-    "check_sst_three_years_filled": ("Auswertung", "C8", "bool"),
+    "sst_three_years_filled": ("Auswertung", "C8", "bool"),
     # Add more mappings here as needed:
     # "check_name": ("SheetName", "A1", "bool"),
     # "check_name_with_metric": ("SheetName", "A2", "metric"),

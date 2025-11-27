@@ -8,7 +8,7 @@ SELECT
     DokumentLink,
     ErstellungsDatum,
     BerichtPeriode,
-    InstitutID,
+    FinmaID,
     InstitutName,
     GeschaeftNr,
     Berichtsjahr
