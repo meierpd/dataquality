@@ -9,6 +9,7 @@ This project provides an automated way to validate Excel files submitted by inst
 * **File Processing & Caching**: SHA-256 hash-based caching to avoid reprocessing identical files
 * **Automatic Versioning**: Version assignment per institute based on file content changes
 * **Modular Check System**: Extensible Python-based quality checks with simple registration
+* **Multi-Language Support**: Automatic detection and handling of German, English, and French Excel sheet names
 * **Database Output**: Denormalized qc_results table ready for MSSQL storage
 * **Force Reprocess Mode**: Option to reprocess files regardless of cache status
 * **ORSADocumentSourcer Integration**: Direct integration with document sourcing system
@@ -44,6 +45,7 @@ dataquality/
       checks/             # Quality check rules
         __init__.py
         rules.py          # Check implementations
+        sheet_mapper.py   # Multi-language sheet name mapping
       sourcing/           # Document sourcing
         __init__.py
         document_sourcer.py  # ORSADocumentSourcer
@@ -240,6 +242,62 @@ While the GeschaeftsNr (business number) is unique per institute and year, filte
 berichtsjahr makes it easier to focus on specific reporting periods. Over time, as multiple 
 years accumulate, the GeschaeftsNr remains the unique identifier.
 
+## Multi-Language Support
+
+The system automatically detects and handles ORSA Excel files in German, English, or French. 
+
+### How it Works
+
+1. **Automatic Language Detection**: When processing a file, the system analyzes sheet names to determine the language
+2. **Sheet Name Mapping**: Checks can reference German sheet names (as the reference standard), and the system automatically translates to the correct language
+3. **Transparent Access**: Check functions use `SheetNameMapper` to access sheets regardless of the file's language
+
+### Supported Languages
+
+| German (Reference) | English | French |
+|-------------------|---------|--------|
+| Ergebnisse_AVO-FINMA | Results_ISO-FINMA | Résultats_OS-FINMA |
+| Auswertung | General details | Info. générales |
+| Allgem. Angaben | Risks | Risques |
+| Risiken | Measures | Mesures |
+| Massnahmen | Scenarios | Scénarios |
+| Ergebnisse_IFRS | Results_IFRS | Résultats_IFRS |
+| Qual. & langfr. Risiken | Qual. & long-term risks | Risques qual. & à long terme |
+| Schlussfolgerungen, Dokument. | Conclusions, documentation | Conclusions, document. |
+
+### Example: Writing Multi-Language Checks
+
+```python
+from openpyxl.workbook.workbook import Workbook
+from typing import Optional, Tuple
+from orsa_analysis.checks.sheet_mapper import SheetNameMapper
+
+def check_example(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+    """Example check using multi-language sheet mapping.
+    
+    Args:
+        wb: Workbook to check
+        
+    Returns:
+        Tuple of (outcome, numeric_value, description)
+    """
+    # Create mapper - automatically detects language
+    mapper = SheetNameMapper(wb)
+    
+    # Access sheet using German reference name
+    # Works for German, English, or French files
+    results_sheet = mapper.get_sheet("Ergebnisse_AVO-FINMA")
+    
+    if results_sheet is None:
+        return False, None, "Required sheet not found"
+    
+    # Check your data
+    value = results_sheet["A1"].value
+    outcome = value is not None
+    
+    return outcome, 1.0 if outcome else 0.0, "Example check passed"
+```
+
 ## Adding a New Check
 
 To add a check, open `src/orsa_analysis/checks/rules.py` and define a new function:
@@ -371,9 +429,10 @@ All modules have full unit test coverage:
 - `tests/test_reader.py` - ExcelReader tests
 - `tests/test_versioning.py` - VersionManager tests
 - `tests/test_db.py` - Database writer tests
-- `tests/test_rules.py` - Check function tests (15 checks)
+- `tests/test_rules.py` - Check function tests (including multi-language SST check)
+- `tests/test_sheet_mapper.py` - Multi-language sheet mapping tests (14 tests)
 - `tests/test_processor.py` - DocumentProcessor integration tests
-- `tests/test_document_sourcer.py` - ORSADocumentSourcer tests (22 tests)
+- `tests/test_document_sourcer.py` - ORSADocumentSourcer tests (25 tests)
 
 ## Module Documentation
 
@@ -412,6 +471,15 @@ Quality check registry with pre-built checks:
 - `check_row_count_reasonable` - Verify row count limits
 - `check_has_expected_headers` - Verify headers exist
 - `check_no_merged_cells` - Detect merged cells
+- `check_sst_three_years_filled` - Verify SST data filled for three years (cells E42:G42, E43:G43, E45:G45)
+
+### checks/sheet_mapper.py
+Multi-language sheet name mapping system:
+- `SheetNameMapper` - Maps German reference names to actual sheet names in any language
+- `SHEET_NAME_MAPPING` - Dictionary containing all supported sheet name translations
+- `get_sheet(german_ref)` - Get worksheet by German reference name
+- `get_sheet_name(german_ref)` - Get actual sheet name in file's language
+- `has_sheet(german_ref)` - Check if sheet exists
 
 ## Integration Notes
 

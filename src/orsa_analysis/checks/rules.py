@@ -8,6 +8,8 @@ from typing import Callable, Optional, Tuple
 from openpyxl.workbook.workbook import Workbook
 import logging
 
+from .sheet_mapper import SheetNameMapper
+
 logger = logging.getLogger(__name__)
 
 CheckFunction = Callable[[Workbook], Tuple[bool, Optional[float], str]]
@@ -197,6 +199,56 @@ def check_no_merged_cells(wb: Workbook) -> Tuple[bool, Optional[float], str]:
     return outcome, float(merged_count), description
 
 
+def check_sst_three_years_filled(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+    """Check if SST values are filled for three years in Results_ISO-FINMA sheet.
+
+    Checks cells E42:G42, E43:G43, and E45:G45 in the 'Ergebnisse_AVO-FINMA' sheet
+    (German) or its equivalent in other languages.
+
+    Args:
+        wb: Workbook to check
+
+    Returns:
+        Tuple of (outcome, empty_count, description)
+    """
+    try:
+        mapper = SheetNameMapper(wb)
+        sheet = mapper.get_sheet("Ergebnisse_AVO-FINMA")
+        
+        if sheet is None:
+            return False, None, "Sheet 'Ergebnisse_AVO-FINMA' not found in workbook"
+        
+        # Define cells to check: E42:G42, E43:G43, E45:G45
+        cells_to_check = [
+            ("E42", "F42", "G42"),
+            ("E43", "F43", "G43"),
+            ("E45", "F45", "G45"),
+        ]
+        
+        empty_count = 0
+        total_cells = 0
+        
+        for row_cells in cells_to_check:
+            for cell_ref in row_cells:
+                total_cells += 1
+                value = sheet[cell_ref].value
+                if value is None or (isinstance(value, str) and not value.strip()):
+                    empty_count += 1
+        
+        outcome = empty_count == 0
+        description = (
+            "SST is filled in for three years"
+            if outcome
+            else f"SST is not filled in for three years ({empty_count} of {total_cells} cells are empty)"
+        )
+        
+        return outcome, float(empty_count), description
+        
+    except Exception as e:
+        logger.error(f"Error in SST three years check: {e}")
+        return False, None, f"Check failed with error: {str(e)}"
+
+
 REGISTERED_CHECKS: list[Tuple[str, CheckFunction]] = [
     ("has_sheets", check_has_sheets),
     ("no_empty_sheets", check_no_empty_sheets),
@@ -205,6 +257,7 @@ REGISTERED_CHECKS: list[Tuple[str, CheckFunction]] = [
     ("row_count_reasonable", check_row_count_reasonable),
     ("has_expected_headers", check_has_expected_headers),
     ("no_merged_cells", check_no_merged_cells),
+    ("sst_three_years_filled", check_sst_three_years_filled),
 ]
 
 
