@@ -44,19 +44,19 @@ def process_from_sourcer(
 
     try:
         # Initialize database manager (writes to GBI_REPORTING.gbi.orsa_analysis_data)
-        # Load database connection from credentials file
-        from dotenv import dotenv_values
+        # DatabaseManager will load credentials from the credentials_file
+        credentials_path = Path(credentials_file)
+        if not credentials_path.exists():
+            logger.warning(f"Credentials file not found: {credentials_file}")
+            logger.warning("Will attempt to use Windows authentication")
         
-        creds = dotenv_values(credentials_file)
-        server = creds.get("DB_SERVER", "frbdata.finma.ch")
-        database = creds.get("DB_DATABASE", "GBI_REPORTING")
-        
-        connection_string = (
-            f"mssql+pyodbc://{server}/{database}"
-            "?driver=ODBC+Driver+17+for+SQL+Server"
-            "&Trusted_Connection=yes"
+        db_manager = DatabaseManager(
+            server="dwhdata.finma.ch",
+            database="GBI_REPORTING",
+            schema="gbi",
+            table_name="orsa_analysis_data",
+            credentials_file=credentials_path if credentials_path.exists() else None
         )
-        db_manager = DatabaseManager(connection_string)
         
         # Initialize pipeline
         pipeline = ORSAPipeline(db_manager, force_reprocess=force_reprocess)
