@@ -5,8 +5,7 @@ import logging
 import sys
 from pathlib import Path
 
-from orsa_analysis.core.processor import DocumentProcessor
-from orsa_analysis.core.db import MSSQLDatabaseWriter
+from orsa_analysis import ORSAPipeline, DatabaseManager
 from orsa_analysis.sourcing import ORSADocumentSourcer
 
 logger = logging.getLogger(__name__)
@@ -44,43 +43,48 @@ def process_from_sourcer(
     logger.info(f"Force reprocess: {force_reprocess}")
 
     try:
-        # Initialize database writer (writes to GBI_REPORTING.gbi.orsa_analysis_data)
-        db_writer = MSSQLDatabaseWriter(
-            credentials_file=Path(credentials_file)
-        )
+        # Initialize database manager (writes to GBI_REPORTING.gbi.orsa_analysis_data)
+        # Load database connection from credentials file
+        from dotenv import dotenv_values
         
-        # Initialize document processor
-        processor = DocumentProcessor(db_writer, force_reprocess=force_reprocess)
+        creds = dotenv_values(credentials_file)
+        server = creds.get("DB_SERVER", "frbdata.finma.ch")
+        database = creds.get("DB_DATABASE", "GBI_REPORTING")
+        
+        connection_string = (
+            f"mssql+pyodbc://{server}/{database}"
+            "?driver=ODBC+Driver+17+for+SQL+Server"
+            "&Trusted_Connection=yes"
+        )
+        db_manager = DatabaseManager(connection_string)
+        
+        # Initialize pipeline
+        pipeline = ORSAPipeline(db_manager, force_reprocess=force_reprocess)
         
         # Initialize document sourcer
         sourcer = ORSADocumentSourcer(cred_file=credentials_file)
         
-        # Load documents from database
+        # Process documents through pipeline
         logger.info("Loading documents from FINMA database...")
-        documents = sourcer.load()
-        logger.info(f"Loaded {len(documents)} documents from sourcer")
-
-        # Process all documents
-        results = processor.process_documents(documents)
+        summary = pipeline.process_from_sourcer(sourcer)
 
         # Display summary
-        summary = processor.get_processing_summary()
         logger.info("=" * 60)
         logger.info("PROCESSING SUMMARY")
         logger.info("=" * 60)
-        logger.info(f"Total files processed: {summary['total_files']}")
-        logger.info(f"Total checks executed: {summary['total_checks']}")
+        logger.info(f"Files processed: {summary['files_processed']}")
+        logger.info(f"Files skipped: {summary['files_skipped']}")
+        logger.info(f"Total checks: {summary['total_checks']}")
         logger.info(f"Checks passed: {summary['checks_passed']}")
-        logger.info(f"Checks failed: {summary['checks_failed']}")
         logger.info(f"Pass rate: {summary['pass_rate']:.1%}")
         logger.info(f"Institutes: {', '.join(summary['institutes'])}")
         logger.info("=" * 60)
         
-        # Close database connection
-        db_writer.close()
+        # Close pipeline
+        pipeline.close()
         logger.info("Processing completed successfully")
 
-        return results
+        return summary
 
     except Exception as e:
         logger.error(f"Processing failed: {e}", exc_info=True)
