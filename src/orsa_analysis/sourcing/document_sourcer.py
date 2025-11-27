@@ -108,15 +108,15 @@ class ORSADocumentSourcer:
 
     def download_documents(
         self, document_df: pd.DataFrame, target_dir: Path = None
-    ) -> List[Tuple[str, Path, str]]:
+    ) -> List[Tuple[str, Path, str, str]]:
         """Download documents from SharePoint links.
         
         Args:
-            document_df: DataFrame with DokumentName, DokumentLink, and GeschaeftNr columns
+            document_df: DataFrame with DokumentName, DokumentLink, GeschaeftNr, and FinmaID columns
             target_dir: Directory to save files (default: orsa_response_files/)
             
         Returns:
-            List of tuples (document_name, file_path, geschaeft_nr)
+            List of tuples (document_name, file_path, geschaeft_nr, finma_id)
             
         Note:
             Requires DB_USER and DB_PASSWORD to be set in environment variables.
@@ -140,6 +140,7 @@ class ORSADocumentSourcer:
             name = row["DokumentName"]
             link = row["DokumentLink"]
             geschaeft_nr = row.get("GeschaeftNr", None)
+            finma_id = row.get("FinmaID", None)
             out = target_dir / name
             
             try:
@@ -151,7 +152,7 @@ class ORSADocumentSourcer:
                 )
                 r.raise_for_status()
                 out.write_bytes(r.content)
-                results.append((name, out, geschaeft_nr))
+                results.append((name, out, geschaeft_nr, finma_id))
                 logger.info(f"  ✓ Saved to: {out}")
             except Exception as e:
                 logger.error(f"  ✗ Failed to download {name}: {e}")
@@ -159,7 +160,7 @@ class ORSADocumentSourcer:
         logger.info(f"Successfully downloaded {len(results)}/{len(document_df)} documents")
         return results
 
-    def load(self, target_dir: Path = None) -> List[Tuple[str, Path, str]]:
+    def load(self, target_dir: Path = None) -> List[Tuple[str, Path, str, str]]:
         """Load all relevant ORSA documents.
         
         This is the main entry point that:
@@ -170,7 +171,7 @@ class ORSADocumentSourcer:
             target_dir: Directory to save files (default: orsa_response_files/)
             
         Returns:
-            List of tuples (document_name, file_path, geschaeft_nr)
+            List of tuples (document_name, file_path, geschaeft_nr, finma_id)
         """
         logger.info("Starting ORSA document loading process")
         document_metadata_df = self.get_document_metadata()

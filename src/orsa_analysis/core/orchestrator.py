@@ -62,21 +62,23 @@ class ORSAPipeline:
         )
     
     def process_documents(
-        self, documents: List[Tuple[str, Path, Optional[str]]]
+        self, documents: List[Tuple]
     ) -> Dict[str, Any]:
         """Process a list of documents through the quality control pipeline.
         
         This method:
         1. Validates input documents exist
-        2. Extracts institute IDs from filenames
+        2. Uses FinmaID from database or extracts institute_id from filenames as fallback
         3. Processes each document through quality checks
         4. Handles caching based on file hashes
         5. Stores results in the database
         6. Returns processing statistics
         
         Args:
-            documents: List of tuples (document_name, file_path, geschaeft_nr)
-                where geschaeft_nr is optional
+            documents: List of tuples in either format:
+                - (document_name, file_path, geschaeft_nr, finma_id) - preferred
+                - (document_name, file_path, geschaeft_nr) - legacy, extracts from filename
+                where geschaeft_nr and finma_id are optional
         
         Returns:
             Dictionary containing:
@@ -94,7 +96,7 @@ class ORSAPipeline:
             FileNotFoundError: If a document file doesn't exist
             
         Example:
-            >>> documents = [("INST001_report.xlsx", Path("data/file1.xlsx"), "GNR123")]
+            >>> documents = [("INST001_report.xlsx", Path("data/file1.xlsx"), "GNR123", "10001")]
             >>> results = pipeline.process_documents(documents)
             >>> print(f"Processed {results['files_processed']} files")
         """
@@ -103,7 +105,13 @@ class ORSAPipeline:
         
         logger.info(f"Starting pipeline processing for {len(documents)} documents")
         
-        for doc_name, file_path, geschaeft_nr in documents:
+        for doc_tuple in documents:
+            # Handle both 3-tuple and 4-tuple formats
+            if len(doc_tuple) == 4:
+                doc_name, file_path, geschaeft_nr, finma_id = doc_tuple
+            else:
+                doc_name, file_path, geschaeft_nr = doc_tuple
+                finma_id = None
             try:
                 # Validate file exists
                 if not file_path.exists():
@@ -111,8 +119,14 @@ class ORSAPipeline:
                     self.processing_stats["files_failed"] += 1
                     continue
                 
-                # Extract institute ID from filename
-                institute_id = self.processor._extract_institute_id(doc_name)
+                # Use provided finma_id or extract institute_id from filename as fallback
+                if finma_id is None:
+                    institute_id = self.processor._extract_institute_id(doc_name)
+                    logger.debug(f"Extracted institute_id from filename: {institute_id}")
+                else:
+                    institute_id = finma_id
+                    logger.debug(f"Using provided FinmaID as institute_id: {institute_id}")
+                
                 institutes_seen.add(institute_id)
                 
                 logger.info(

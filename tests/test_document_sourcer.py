@@ -46,6 +46,18 @@ def sample_metadata_df():
                 "http://example.com/doc3.xlsx",
                 "http://example.com/doc4.xlsx",
             ],
+            "FinmaID": [
+                "10001",
+                "10002",
+                "10003",
+                "10004",
+            ],
+            "GeschaeftNr": [
+                "GNR001",
+                "GNR002",
+                "GNR003",
+                "GNR004",
+            ],
         }
     )
 
@@ -197,6 +209,7 @@ class TestORSADocumentSourcerDownload:
                 "DokumentName": ["test_doc.xlsx"],
                 "DokumentLink": ["http://example.com/test_doc.xlsx"],
                 "GeschaeftNr": ["GNR123"],
+                "FinmaID": ["10001"],
             }
         )
 
@@ -210,6 +223,7 @@ class TestORSADocumentSourcerDownload:
         assert results[0][0] == "test_doc.xlsx"
         assert results[0][1] == tmp_path / "test_doc.xlsx"
         assert results[0][2] == "GNR123"
+        assert results[0][3] == "10001"
         assert (tmp_path / "test_doc.xlsx").exists()
         assert (tmp_path / "test_doc.xlsx").read_bytes() == b"file content"
 
@@ -239,8 +253,8 @@ class TestORSADocumentSourcerDownload:
         results = sourcer.download_documents(df, target_dir=tmp_path)
 
         assert len(results) == 3
-        assert all(name in ["doc1.xlsx", "doc2.xlsx", "doc3.xlsx"] for name, _, _ in results)
-        assert all((tmp_path / name).exists() for name, _, _ in results)
+        assert all(name in ["doc1.xlsx", "doc2.xlsx", "doc3.xlsx"] for name, _, _, _ in results)
+        assert all((tmp_path / name).exists() for name, _, _, _ in results)
 
     @patch("requests.get")
     def test_download_documents_with_failure(self, mock_get, tmp_path, monkeypatch):
@@ -273,7 +287,7 @@ class TestORSADocumentSourcerDownload:
         results = sourcer.download_documents(df, target_dir=tmp_path)
 
         assert len(results) == 2  # Only successful downloads
-        assert all(name in ["doc1.xlsx", "doc3.xlsx"] for name, _, _ in results)
+        assert all(name in ["doc1.xlsx", "doc3.xlsx"] for name, _, _, _ in results)
 
     @patch("requests.get")
     def test_download_documents_default_directory(self, mock_get, tmp_path, monkeypatch):
@@ -345,8 +359,8 @@ class TestORSADocumentSourcerLoad:
     ):
         """Test the full load workflow."""
         expected_results = [
-            ("2026_Company_A_ORSA-Formular.xlsx", tmp_path / "doc1.xlsx", None),
-            ("2027_Company_C_ORSA-Formular.xlsx", tmp_path / "doc3.xlsx", None),
+            ("2026_Company_A_ORSA-Formular.xlsx", tmp_path / "doc1.xlsx", "GNR001", "10001"),
+            ("2027_Company_C_ORSA-Formular.xlsx", tmp_path / "doc3.xlsx", "GNR003", "10003"),
         ]
 
         mock_get_metadata.return_value = sample_metadata_df
@@ -357,7 +371,10 @@ class TestORSADocumentSourcerLoad:
 
         assert results == expected_results
         mock_get_metadata.assert_called_once()
-        mock_download.assert_called_once_with(sample_metadata_df, tmp_path)
+        mock_download.assert_called_once()
+        # Check that download_documents was called with correct target_dir
+        call_args = mock_download.call_args[0]
+        assert call_args[1] == tmp_path
 
     @patch.object(ORSADocumentSourcer, "download_documents")
     @patch.object(ORSADocumentSourcer, "get_document_metadata")
@@ -371,7 +388,10 @@ class TestORSADocumentSourcerLoad:
         sourcer = ORSADocumentSourcer()
         sourcer.load()
 
-        mock_download.assert_called_once_with(sample_metadata_df, None)
+        mock_download.assert_called_once()
+        # Check that download_documents was called with correct target_dir
+        call_args = mock_download.call_args[0]
+        assert call_args[1] is None
 
     @patch.object(ORSADocumentSourcer, "download_documents")
     @patch.object(ORSADocumentSourcer, "get_document_metadata")

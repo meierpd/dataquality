@@ -108,9 +108,16 @@ def process_from_sourcer(
             # Get source files from sourcer
             documents = sourcer.load()
             source_files = {}
-            for document_name, file_path, _ in documents:
-                # Extract institute_id from document name
-                institute_id = _extract_institute_id(document_name)
+            for doc_tuple in documents:
+                # Handle both 3-tuple and 4-tuple formats
+                if len(doc_tuple) == 4:
+                    _, file_path, _, finma_id = doc_tuple
+                    # Use FinmaID from database as the institute_id
+                    institute_id = finma_id
+                else:
+                    document_name, file_path, _ = doc_tuple
+                    # Fallback: extract institute_id from document name
+                    institute_id = _extract_institute_id(document_name)
                 source_files[institute_id] = Path(file_path)
             
             # Initialize report generator
@@ -173,10 +180,17 @@ def generate_reports_only(
         sourcer = ORSADocumentSourcer(cred_file=credentials_file, berichtsjahr=berichtsjahr)
         documents = sourcer.load()
         source_files = {}
-        for document_name, file_path, _ in documents:
-            # Extract institute_id from document name
-            institute_id = _extract_institute_id(document_name)
-            source_files[institute_id] = Path(file_path)
+        for doc_tuple in documents:
+            # Handle both 3-tuple and 4-tuple formats
+            if len(doc_tuple) == 4:
+                _, file_path, _, finma_id = doc_tuple
+                # Use FinmaID from database as the institute_id
+                inst_id = finma_id
+            else:
+                document_name, file_path, _ = doc_tuple
+                # Fallback: extract institute_id from document name
+                inst_id = _extract_institute_id(document_name)
+            source_files[inst_id] = Path(file_path)
         
         logger.info(f"Found {len(source_files)} source files")
         
