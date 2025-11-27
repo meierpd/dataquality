@@ -6,13 +6,13 @@ This project provides an automated way to validate Excel files submitted by inst
 
 ## Features
 
-* Process multiple Excel files with institute identifiers.
-* Automatic versioning based on file hashes.
-* Flexible rule system implemented as Python functions.
-* One row per check result stored in the database.
-* Regenerable outputs, including a forced reprocessing option.
-* Fixed-format Excel report generation per institute.
-* Power BI-ready denormalized result table.
+* **File Processing & Caching**: SHA-256 hash-based caching to avoid reprocessing identical files
+* **Automatic Versioning**: Version assignment per institute based on file content changes
+* **Modular Check System**: Extensible Python-based quality checks with simple registration
+* **Database Output**: Denormalized qc_results table ready for MSSQL storage
+* **Force Reprocess Mode**: Option to reprocess files regardless of cache status
+* **ORSADocumentSourcer Integration**: Direct integration with document sourcing system
+* **Comprehensive Testing**: Full unit test coverage for all modules
 
 ## Architecture
 
@@ -29,54 +29,220 @@ This project provides an automated way to validate Excel files submitted by inst
 ## Directory Structure
 
 ```
-project/
-  checks/
-    __init__.py
-    rules.py
-  core/
-    processor.py
-    reader.py
-    versioning.py
-    db.py
-    report.py
-  templates/
-    institute_report_template.xlsx
-  main.py
+orsa_analysis/
+  src/
+    orsa_analysis/
+      __init__.py
+      cli.py              # Command-line interface  
+      core/               # Core processing logic
+        __init__.py
+        processor.py      # Main document processor
+        reader.py         # Excel file reader
+        versioning.py     # File versioning & caching
+        db.py             # Database writers (InMemory, MSSQL)
+        database_manager.py  # Database connection manager
+      checks/             # Quality check rules
+        __init__.py
+        rules.py          # Check implementations
+      sourcing/           # Document sourcing
+        __init__.py
+        document_sourcer.py  # ORSADocumentSourcer
+  sql/
+    source_orsa_dokument_metadata.sql    # Query for document metadata
+    create_table_orsa_analysis_data.sql  # Database table schema
+  tests/                # 103 comprehensive unit tests
+  main.py               # Main entry point for production use
+  pyproject.toml        # Modern Python packaging
   README.md
+  PRD.md
 ```
+
+## Installation
+
+```bash
+# Install in editable mode for development
+pip install -e .
+
+# Or install from repository
+pip install git+https://github.com/meierpd/dataquality.git
+```
+
+## Quick Start
+
+The package can be used as a library or via the command-line interface.
+
+### Command-Line Usage
+
+```bash
+# Process ORSA documents from sourcer (writes to MSSQL)
+orsa-qc --verbose
+
+# Force reprocess all files
+orsa-qc --force --verbose
+
+# Use custom credentials file
+orsa-qc --credentials /path/to/credentials.env
+```
+
+Or run main.py directly:
+
+```bash
+python main.py --verbose
+```
+
+### Library Usage with ORSADocumentSourcer and MSSQL
+
+```python
+from orsa_analysis import DocumentProcessor, MSSQLDatabaseWriter
+from orsa_analysis.sourcing import ORSADocumentSourcer
+
+# Initialize MSSQL database writer
+db_writer = MSSQLDatabaseWriter(
+    server="frbdata.finma.ch",
+    database="GBI_REPORTING"
+)
+
+# Initialize processor
+processor = DocumentProcessor(db_writer, force_reprocess=False)
+
+# Source documents from database
+sourcer = ORSADocumentSourcer()
+documents = sourcer.load()  # Returns List[Tuple[str, Path]]
+
+# Process all documents
+for name, path in documents:
+    # Extract institute ID from filename (e.g., "INS001_ORSA_2026.xlsx")
+    institute_id = name.split('_')[0]
+    results = processor.process_file(path, institute_id=institute_id)
+
+# Write all results to database
+db_writer.write_results()
+
+# Get processing summary
+summary = processor.get_processing_summary()
+print(f"Total files: {summary['total_files']}")
+print(f"Processed: {summary['processed']}")
+print(f"Cached: {summary['cached']}")
+print(f"Pass rate: {summary['pass_rate']:.1%}")
+```
+
+For testing or development without a database:
+
+```python
+from orsa_analysis import DocumentProcessor, InMemoryDatabaseWriter
+
+# Use in-memory writer for testing
+db_writer = InMemoryDatabaseWriter()
+processor = DocumentProcessor(db_writer)
+
+# ... process files ...
+
+# Access results in memory
+all_results = db_writer.get_results()
+```
+
+### ORSADocumentSourcer Setup
+
+To use the document sourcing functionality:
+
+1. Create a `credentials.env` file in the project root:
+```bash
+FINMA_USERNAME=your_username
+FINMA_PASSWORD=your_password
+```
+
+2. Ensure the SQL query file exists at `sql/source_orsa_dokument_metadata.sql`
+
+3. The sourcer will automatically:
+   - Download documents from the FINMA database
+   - Filter for ORSA documents from 2026 onwards
+   - Store files in `orsa_response_files/` directory
+   - Return document paths for processing
 
 ## Adding a New Check
 
-To add a check, open `checks/rules.py` and define a new function:
+To add a check, open `src/orsa_analysis/checks/rules.py` and define a new function:
 
 ```python
-from openpyxl import Workbook
+from openpyxl.workbook.workbook import Workbook
+from typing import Optional, Tuple
 
-def check_example(wb: Workbook):
+def check_example(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+    """Your custom check logic.
+    
+    Args:
+        wb: Workbook to check
+        
+    Returns:
+        Tuple of (outcome, numeric_value, description)
+    """
     desc = "Example description"
     outcome = True
-    value = None
+    value = 42.0  # Optional numeric outcome
     return outcome, value, desc
 ```
 
-Then add the function to the `REGISTERED_CHECKS` list in the same file.
+Then add the function to the `REGISTERED_CHECKS` list in the same file:
 
-## Database Schema
+```python
+REGISTERED_CHECKS.append(("example_check", check_example))
+```
 
-Single denormalized table containing all results:
+## Database Integration
 
-**Table: qc_results**
+The system writes check results to an MSSQL database for reporting and analysis.
 
-* id (PK)
-* institute_id
-* file_name
-* file_hash
-* version_number
-* check_name
-* check_description
-* outcome_bool
-* outcome_numeric
-* processed_at (timestamp)
+### Database Schema
+
+**Database**: `GBI_REPORTING`  
+**Schema**: `gbi`  
+**Table**: `orsa_analysis_data`
+
+Columns:
+* id (INT, IDENTITY PK)
+* institute_id (NVARCHAR(50))
+* file_name (NVARCHAR(255))
+* file_hash (NVARCHAR(64))
+* version (INT)
+* check_name (NVARCHAR(100))
+* check_description (NVARCHAR(MAX))
+* outcome_bool (BIT)
+* outcome_numeric (FLOAT, NULL)
+* processed_timestamp (DATETIME2, DEFAULT GETDATE())
+
+Indexes:
+* Clustered index on id
+* Non-clustered index on institute_id
+* Non-clustered index on file_hash
+* Composite index on (institute_id, version)
+
+### Database Views
+
+Two convenience views are provided:
+
+1. **vw_orsa_analysis_latest**: Shows only the latest version per institute
+2. **vw_orsa_analysis_summary**: Aggregates pass rates by institute and check
+
+### Setup Database
+
+To create the database table and views:
+
+```bash
+# Run the SQL script on your MSSQL server
+sqlcmd -S your_server -d GBI_REPORTING -i sql/create_table_orsa_analysis_data.sql
+```
+
+### Database Connection
+
+The system uses environment variables for database credentials:
+
+```bash
+# Set environment variables
+export DB_USER=your_username
+export DB_PASSWORD=your_password
+```
+
+Alternatively, use Windows authentication (default on Windows systems).
 
 ## Processing Workflow
 
@@ -101,3 +267,98 @@ For each institute, an Excel sheet is generated based on a template. Columns inc
 ## Power BI
 
 Power BI connects directly to `qc_results`, which already contains all metadata required for aggregated views.
+
+## Testing
+
+Run the comprehensive test suite (103 tests):
+
+```bash
+# Run all tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run with coverage report
+pytest --cov=orsa_analysis --cov-report=html
+
+# Run specific test modules
+pytest tests/test_document_sourcer.py -v
+```
+
+All modules have full unit test coverage:
+- `tests/test_reader.py` - ExcelReader tests
+- `tests/test_versioning.py` - VersionManager tests
+- `tests/test_db.py` - Database writer tests
+- `tests/test_rules.py` - Check function tests (15 checks)
+- `tests/test_processor.py` - DocumentProcessor integration tests
+- `tests/test_document_sourcer.py` - ORSADocumentSourcer tests (22 tests)
+
+## Module Documentation
+
+### core/reader.py
+`ExcelReader` class for loading Excel files with openpyxl.
+- `load_file(path)` - Loads an Excel file
+- `get_sheet_names(workbook)` - Gets list of sheet names
+- `close_workbook(workbook)` - Closes the workbook
+
+### core/versioning.py
+`VersionManager` handles file hashing and version assignment.
+- `compute_file_hash(path)` - Computes SHA-256 hash
+- `get_version(institute_id, path)` - Gets or assigns version
+- `is_processed(institute_id, hash)` - Checks if file was processed
+- `load_existing_versions(data)` - Loads cache from database
+
+### core/db.py
+Database models and writers.
+- `CheckResult` - Dataclass for check results
+- `DatabaseWriter` - Abstract base class for DB operations
+- `InMemoryDatabaseWriter` - In-memory implementation
+
+### core/processor.py
+`DocumentProcessor` orchestrates the processing workflow.
+- `process_file(institute_id, path)` - Processes single file
+- `process_documents(documents)` - Batch processing
+- `should_process_file(institute_id, path)` - Cache check
+- `get_processing_summary()` - Get statistics
+
+### checks/rules.py
+Quality check registry with pre-built checks:
+- `check_has_sheets` - Verify workbook has sheets
+- `check_no_empty_sheets` - Verify no empty sheets
+- `check_first_sheet_has_data` - Verify A1 has data
+- `check_sheet_names_unique` - Verify unique sheet names
+- `check_row_count_reasonable` - Verify row count limits
+- `check_has_expected_headers` - Verify headers exist
+- `check_no_merged_cells` - Detect merged cells
+
+## Integration Notes
+
+### ORSADocumentSourcer Output Format
+The processor expects `List[Tuple[str, Path]]` from `sourcer.load()`:
+```python
+[
+    ("INST001_report.xlsx", Path("/path/to/file1.xlsx")),
+    ("INST002_report.xlsx", Path("/path/to/file2.xlsx")),
+]
+```
+
+### Institute ID Extraction
+By default, extracts ID from filename before first `_`, `-`, or space.
+Override `DocumentProcessor._extract_institute_id()` for custom logic.
+
+### Custom Database Writer
+Implement `DatabaseWriter` for your database backend:
+
+```python
+from dataquality.core.db import DatabaseWriter
+
+class SQLDatabaseWriter(DatabaseWriter):
+    def write_results(self, results):
+        # Write to SQL database
+        return len(results)
+    
+    def get_existing_versions(self):
+        # Query existing versions
+        return query_results
+```
