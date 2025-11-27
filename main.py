@@ -43,20 +43,8 @@ def process_from_sourcer(
     logger.info(f"Force reprocess: {force_reprocess}")
 
     try:
-        # Initialize database manager (writes to GBI_REPORTING.gbi.orsa_analysis_data)
-        # DatabaseManager will load credentials from the credentials_file
-        credentials_path = Path(credentials_file)
-        if not credentials_path.exists():
-            logger.warning(f"Credentials file not found: {credentials_file}")
-            logger.warning("Will attempt to use Windows authentication")
-        
-        db_manager = DatabaseManager(
-            server="dwhdata.finma.ch",
-            database="GBI_REPORTING",
-            schema="gbi",
-            table_name="orsa_analysis_data",
-            credentials_file=credentials_path if credentials_path.exists() else None
-        )
+        # Initialize database manager - it will handle credentials automatically
+        db_manager = DatabaseManager()
         
         # Initialize pipeline
         pipeline = ORSAPipeline(db_manager, force_reprocess=force_reprocess)
