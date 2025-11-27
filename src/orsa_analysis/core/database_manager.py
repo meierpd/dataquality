@@ -40,9 +40,7 @@ class DatabaseManager:
         database: str = "GBI_REPORTING",
         schema: str = "gbi",
         table_name: str = "orsa_analysis_data",
-        credentials_file: Optional[Path] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None
+        credentials_file: Optional[Path] = None
     ):
         """Initialize database manager.
         
@@ -52,39 +50,27 @@ class DatabaseManager:
             schema: Database schema for writing results
             table_name: Table name for storing results
             credentials_file: Path to credentials.env file (optional)
-            username: Database username (optional, takes precedence over credentials_file)
-            password: Database password (optional, takes precedence over credentials_file)
         """
+        # Load credentials if provided
+        if credentials_file and Path(credentials_file).exists():
+            load_dotenv(credentials_file)
+        
         self.server = server
         self.database = database
         self.schema = schema
         self.table_name = table_name
-        
-        # Handle credentials with priority: explicit params > credentials_file > env vars
-        self.username = username
-        self.password = password
-        
-        # Load from credentials file if not explicitly provided
-        if not self.username and credentials_file and Path(credentials_file).exists():
-            load_dotenv(credentials_file)
-            self.username = os.getenv("DB_USER")
-            self.password = os.getenv("DB_PASSWORD")
-        
-        # Fall back to environment variables if still not set
-        if not self.username:
-            self.username = os.getenv("DB_USER")
-            self.password = os.getenv("DB_PASSWORD")
-        
         self.engine = self._create_engine()
         
         logger.info(f"Database manager initialized for {server}/{database}")
     
     def _create_engine(self):
         """Create SQLAlchemy engine with Windows auth or credentials."""
-        if self.username and self.password:
-            conn_str = f"mssql+pymssql://{self.username}:{self.password}@{self.server}/{self.database}"
+        if "DB_USER" in os.environ and "DB_PASSWORD" in os.environ:
+            db_user = os.environ["DB_USER"]
+            db_password = os.environ["DB_PASSWORD"]
+            conn_str = f"mssql+pymssql://{db_user}:{db_password}@{self.server}/{self.database}"
             logger.info(f"Using pymssql driver with credential-based auth for {self.server}/{self.database}")
-            logger.debug(f"Connection string: mssql+pymssql://{self.username}:***@{self.server}/{self.database}")
+            logger.debug(f"Connection string: mssql+pymssql://{db_user}:***@{self.server}/{self.database}")
             # pymssql driver doesn't support use_setinputsizes parameter
             return create_engine(conn_str)
         else:
