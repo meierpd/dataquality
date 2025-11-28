@@ -276,6 +276,45 @@ class DatabaseManager:
             logger.error(f"Failed to get metadata for {institute_id}: {e}")
             return None
     
+    def get_institut_metadata_by_finmaid(self, finma_id: str) -> Optional[Dict[str, Any]]:
+        """Get institut metadata from DWHMart database.
+        
+        This method queries the institut_metadata.sql to retrieve additional
+        institute information including FinmaObjektName and MitarbeiterName.
+        
+        Args:
+            finma_id: FINMA ID (FinmaObjektNr) of the institute
+            
+        Returns:
+            Dictionary with keys: FINMAID, FinmaObjektName, MitarbeiterName, etc.
+            Returns None if not found or on error.
+        """
+        try:
+            # Load the SQL query from file
+            sql_file = Path(__file__).parent.parent.parent.parent / "sql" / "institut_metadata.sql"
+            if not sql_file.exists():
+                logger.error(f"SQL file not found: {sql_file}")
+                return None
+            
+            query = sql_file.read_text(encoding="utf-8")
+            
+            # Execute query and filter by FINMAID
+            df = self.execute_query(query)
+            
+            # Filter for the specific FINMA ID
+            filtered_df = df[df['FINMAID'] == finma_id]
+            
+            if not filtered_df.empty:
+                metadata = filtered_df.iloc[0].to_dict()
+                logger.debug(f"Retrieved institut metadata for FINMAID {finma_id}")
+                return metadata
+            else:
+                logger.warning(f"No institut metadata found for FINMAID {finma_id}")
+                return None
+        except Exception as e:
+            logger.error(f"Failed to get institut metadata for FINMAID {finma_id}: {e}")
+            return None
+    
     def close(self) -> None:
         """Close database connection."""
         if self.engine:
