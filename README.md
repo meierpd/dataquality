@@ -283,8 +283,14 @@ The reporting module generates Excel reports that combine check results from the
 
 Generated reports contain:
 1. **Template Sheets First**: The "Auswertung" sheet and other template sheets appear first
-2. **Check Results**: Check outcomes are written to specific cells (e.g., SST check → C8)
-3. **Source Sheets**: All sheets from the original ORSA document are appended
+2. **Institut Metadata**: Institute-specific metadata is automatically populated:
+   - Cell C3: FinmaID (Institute identifier)
+   - Cell C4: FinmaObjektName (Institute name)
+   - Cell C5: MitarbeiterName (Employee name)
+3. **Check Results**: Check outcomes are written to specific cells (e.g., SST check → C8)
+4. **Source Sheets**: All sheets from the original ORSA document are appended
+
+The institut metadata is sourced from the `institut_metadata.sql` query and merged with the report data using FinmaID as the key.
 
 ### Report Generation Workflow
 
@@ -534,6 +540,20 @@ Two convenience views are provided:
 
 1. **vw_orsa_analysis_latest**: Shows only the latest version per institute
 2. **vw_orsa_analysis_summary**: Aggregates pass rates by institute and check
+
+### Institut Metadata Query
+
+The system includes a query (`sql/institut_metadata.sql`) that retrieves institute metadata from the `DWHMart.dbo.Sachbearbeiter` table. This metadata is automatically integrated into generated reports and includes:
+
+- **FINMAID**: Institute identifier (used as merge key)
+- **FinmaObjektName**: Official institute name
+- **MitarbeiterName**: Assigned employee name
+- **MitarbeiterKuerzel**: Employee abbreviation
+- **MitarbeiterOrgEinheit**: Organizational unit
+- **ZulassungName**: License/authorization type
+- **SachbearbeiterTypName**: Processor type
+
+The metadata is merged with report data using FinmaID as the key and automatically populated in the "Auswertung" sheet (cells C3-C5).
 
 ### Setup Database
 

@@ -47,7 +47,7 @@ class ReportGenerator:
         """Generate report for a single institute.
         
         Args:
-            institute_id: Institute identifier
+            institute_id: Institute identifier (FinmaID)
             source_file_path: Optional path to source ORSA file
             force_overwrite: If True, overwrite existing report file
             
@@ -94,6 +94,9 @@ class ReportGenerator:
         # Apply check results to output
         applied_count = self._apply_check_results(check_results)
         logger.info(f"Applied {applied_count} check results to report")
+        
+        # Apply institut metadata to output (FinmaID, FinmaObjektName, MitarbeiterName)
+        self._apply_institut_metadata(institute_id)
         
         # Save output file
         self.template_manager.save_workbook(output_path)
@@ -209,6 +212,71 @@ class ReportGenerator:
                 logger.error(f"Failed to apply check {check_name}: {e}")
         
         return applied_count
+    
+    def _apply_institut_metadata(self, institute_id: str) -> bool:
+        """Apply institut metadata to workbook cells.
+        
+        Writes institute metadata to cells C3, C4, and C5 on the Auswertung sheet:
+        - C3: FinmaID
+        - C4: FinmaObjektName
+        - C5: MitarbeiterName
+        
+        Args:
+            institute_id: Institute identifier (FinmaID)
+            
+        Returns:
+            True if metadata was successfully applied, False otherwise
+        """
+        try:
+            # Fetch institut metadata from database
+            institut_metadata = self.db_manager.get_institut_metadata_by_finmaid(institute_id)
+            
+            if not institut_metadata:
+                logger.warning(
+                    f"No institut metadata found for {institute_id}. "
+                    f"Metadata cells will be empty."
+                )
+                return False
+            
+            # Define the target sheet and cell mappings
+            sheet_name = "Auswertung"
+            metadata_mappings = [
+                ("C3", "FINMAID", "FinmaID"),
+                ("C4", "FinmaObjektName", "FinmaObjektName"),
+                ("C5", "MitarbeiterName", "MitarbeiterName")
+            ]
+            
+            # Write each metadata field to its corresponding cell
+            success_count = 0
+            for cell_address, field_key, field_name in metadata_mappings:
+                value = institut_metadata.get(field_key)
+                
+                if value is not None:
+                    success = self.template_manager.write_cell_value(
+                        sheet_name,
+                        cell_address,
+                        value
+                    )
+                    
+                    if success:
+                        success_count += 1
+                        logger.debug(
+                            f"Applied {field_name} -> "
+                            f"{sheet_name}!{cell_address} = {value}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Failed to write {field_name} to {sheet_name}!{cell_address}"
+                        )
+                else:
+                    logger.warning(f"{field_name} is None for institute {institute_id}")
+            
+            logger.info(f"Applied {success_count}/3 institut metadata fields to report")
+            return success_count == 3
+            
+        except Exception as e:
+            logger.error(f"Failed to apply institut metadata: {e}")
+            return False
     
     def _get_output_path(self, institute_id: str, metadata: Dict) -> Path:
         """Determine output file path for a report.
