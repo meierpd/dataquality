@@ -55,7 +55,7 @@ Create a Python-based tool to perform automated quality control on Excel files s
 
 ### 5.1 Database
 
-Denormalized table **qc_results** with columns:
+Denormalized table **orsa_analysis_data** with columns:
 
 * id (PK)
 * institute_id
@@ -66,6 +66,8 @@ Denormalized table **qc_results** with columns:
 * check_description
 * outcome_bool
 * outcome_numeric
+* berichtsjahr (reporting year)
+* geschaeft_nr (business number)
 * processed_timestamp (timestamp)
 
 ### 5.2 Excel per Institute
@@ -82,12 +84,13 @@ Generated based on fixed template. Columns:
 
 ## 6. Integration with Power BI
 
-* Power BI connects to qc_results.
+* Power BI connects to orsa_analysis_data table and views.
 * Dashboard shows aggregate results per institute:
 
   * All good
   * Number of issues
   * Trends across versions
+  * Filtering by reporting year (berichtsjahr)
 
 ## 7. Technical Design
 

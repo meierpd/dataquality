@@ -61,7 +61,7 @@ class DocumentProcessor:
         return True, "New file hash"
 
     def process_file(
-        self, institute_id: str, file_path: Path, geschaeft_nr: Optional[str] = None
+        self, institute_id: str, file_path: Path, geschaeft_nr: Optional[str] = None, berichtsjahr: Optional[int] = None
     ) -> Tuple[FileVersion, List[CheckResult]]:
         """Process a single Excel file and run all checks.
 
@@ -69,6 +69,7 @@ class DocumentProcessor:
             institute_id: Identifier for the institute
             file_path: Path to the Excel file
             geschaeft_nr: Optional business case number (Geschäftsnummer)
+            berichtsjahr: Optional reporting year (Berichtsjahr)
 
         Returns:
             Tuple of (FileVersion, List of CheckResults)
@@ -106,6 +107,7 @@ class DocumentProcessor:
                     outcome_numeric=numeric_value,
                     processed_at=processed_at,
                     geschaeft_nr=geschaeft_nr,
+                    berichtsjahr=berichtsjahr,
                 )
                 results.append(result)
 

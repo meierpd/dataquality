@@ -526,20 +526,23 @@ Columns:
 * check_description (NVARCHAR(MAX))
 * outcome_bool (BIT)
 * outcome_numeric (FLOAT, NULL)
+* berichtsjahr (INT, NULL) - Reporting year for the document
+* geschaeft_nr (NVARCHAR(50), NULL) - Business number (unique per institute/year)
 * processed_timestamp (DATETIME2, DEFAULT GETDATE())
 
 Indexes:
 * Clustered index on id
 * Non-clustered index on institute_id
 * Non-clustered index on file_hash
+* Non-clustered index on berichtsjahr
 * Composite index on (institute_id, version)
 
 ### Database Views
 
 Two convenience views are provided:
 
-1. **vw_orsa_analysis_latest**: Shows only the latest version per institute
-2. **vw_orsa_analysis_summary**: Aggregates pass rates by institute and check
+1. **vw_orsa_analysis_latest**: Shows only the latest version per institute (includes berichtsjahr)
+2. **vw_orsa_analysis_summary**: Aggregates pass rates by institute and check (includes berichtsjahr)
 
 ### Institut Metadata Query
 
@@ -563,6 +566,20 @@ To create the database table and views:
 # Run the SQL script on your MSSQL server
 sqlcmd -S your_server -d GBI_REPORTING -i sql/create_table_orsa_analysis_data.sql
 ```
+
+### Database Migration
+
+If you have an existing `orsa_analysis_data` table without the `berichtsjahr` column, run the migration scripts:
+
+```bash
+# Add berichtsjahr column to existing table
+sqlcmd -S your_server -d GBI_REPORTING -i sql/add_berichtsjahr_column.sql
+
+# Update views to include berichtsjahr
+sqlcmd -S your_server -d GBI_REPORTING -i sql/update_views_for_berichtsjahr.sql
+```
+
+The berichtsjahr (reporting year) is now automatically captured from the document sourcing system and stored with each check result, making it easier to filter and analyze results by reporting period.
 
 ### Database Connection
 

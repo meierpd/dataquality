@@ -27,6 +27,7 @@ class CheckResult:
     outcome_numeric: Optional[float]
     processed_at: datetime
     geschaeft_nr: Optional[str] = None
+    berichtsjahr: Optional[int] = None
 
 
 class DatabaseManager:
@@ -134,6 +135,7 @@ class DatabaseManager:
             "outcome_numeric": r.outcome_numeric,
             "processed_timestamp": r.processed_at,
             "geschaeft_nr": r.geschaeft_nr,
+            "berichtsjahr": r.berichtsjahr,
         } for r in results]
         
         df = pd.DataFrame(data)
@@ -188,7 +190,8 @@ class DatabaseManager:
                     outcome_bool,
                     outcome_numeric,
                     processed_timestamp,
-                    geschaeft_nr
+                    geschaeft_nr,
+                    berichtsjahr
                 FROM {self.schema}.vw_orsa_analysis_latest
                 WHERE institute_id = '{institute_id}'
                 ORDER BY check_name
@@ -262,6 +265,7 @@ class DatabaseManager:
                     file_hash,
                     version,
                     geschaeft_nr,
+                    berichtsjahr,
                     processed_timestamp
                 FROM {self.schema}.vw_orsa_analysis_latest
                 WHERE institute_id = '{institute_id}'

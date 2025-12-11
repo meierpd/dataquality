@@ -29,6 +29,7 @@ CREATE TABLE gbi.orsa_analysis_data (
     file_hash VARCHAR(64) NOT NULL,  -- SHA-256 hash
     version INT NOT NULL,
     geschaeft_nr NVARCHAR(50) NULL,  -- Business case number from source document
+    berichtsjahr INT NULL,  -- Reporting year for the ORSA document
     
     -- Check information
     check_name NVARCHAR(100) NOT NULL,
@@ -47,7 +48,8 @@ CREATE TABLE gbi.orsa_analysis_data (
     INDEX idx_check_name (check_name),
     INDEX idx_processed_timestamp (processed_timestamp),
     INDEX idx_file_version (institute_id, file_name, version),
-    INDEX idx_geschaeft_nr (geschaeft_nr)
+    INDEX idx_geschaeft_nr (geschaeft_nr),
+    INDEX idx_berichtsjahr (berichtsjahr)
 );
 GO
 
@@ -78,13 +80,14 @@ SELECT
     version,
     file_hash,
     geschaeft_nr,
+    berichtsjahr,
     COUNT(*) as total_checks,
     SUM(CASE WHEN outcome_bool = 1 THEN 1 ELSE 0 END) as checks_passed,
     SUM(CASE WHEN outcome_bool = 0 THEN 1 ELSE 0 END) as checks_failed,
     CAST(SUM(CASE WHEN outcome_bool = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) as pass_rate,
     MAX(processed_timestamp) as last_processed
 FROM gbi.orsa_analysis_data
-GROUP BY institute_id, file_name, version, file_hash, geschaeft_nr;
+GROUP BY institute_id, file_name, version, file_hash, geschaeft_nr, berichtsjahr;
 GO
 
 -- Add comments (SQL Server extended properties)
@@ -141,6 +144,14 @@ EXEC sp_addextendedproperty
     @level0type = N'SCHEMA', @level0name = 'gbi',
     @level1type = N'TABLE', @level1name = 'orsa_analysis_data',
     @level2type = N'COLUMN', @level2name = 'geschaeft_nr';
+GO
+
+EXEC sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Reporting year (Berichtsjahr) for the ORSA document', 
+    @level0type = N'SCHEMA', @level0name = 'gbi',
+    @level1type = N'TABLE', @level1name = 'orsa_analysis_data',
+    @level2type = N'COLUMN', @level2name = 'berichtsjahr';
 GO
 
 EXEC sp_addextendedproperty 

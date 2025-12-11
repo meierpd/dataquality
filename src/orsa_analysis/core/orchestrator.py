@@ -76,9 +76,10 @@ class ORSAPipeline:
         
         Args:
             documents: List of tuples in either format:
-                - (document_name, file_path, geschaeft_nr, finma_id) - preferred
+                - (document_name, file_path, geschaeft_nr, finma_id, berichtsjahr) - preferred
+                - (document_name, file_path, geschaeft_nr, finma_id) - legacy
                 - (document_name, file_path, geschaeft_nr) - legacy, extracts from filename
-                where geschaeft_nr and finma_id are optional
+                where geschaeft_nr, finma_id, and berichtsjahr are optional
         
         Returns:
             Dictionary containing:
@@ -96,7 +97,7 @@ class ORSAPipeline:
             FileNotFoundError: If a document file doesn't exist
             
         Example:
-            >>> documents = [("INST001_report.xlsx", Path("data/file1.xlsx"), "GNR123", "10001")]
+            >>> documents = [("INST001_report.xlsx", Path("data/file1.xlsx"), "GNR123", "10001", 2026)]
             >>> results = pipeline.process_documents(documents)
             >>> print(f"Processed {results['files_processed']} files")
         """
@@ -106,12 +107,16 @@ class ORSAPipeline:
         logger.info(f"Starting pipeline processing for {len(documents)} documents")
         
         for doc_tuple in documents:
-            # Handle both 3-tuple and 4-tuple formats
-            if len(doc_tuple) == 4:
+            # Handle 3-tuple, 4-tuple, and 5-tuple formats
+            if len(doc_tuple) == 5:
+                doc_name, file_path, geschaeft_nr, finma_id, berichtsjahr = doc_tuple
+            elif len(doc_tuple) == 4:
                 doc_name, file_path, geschaeft_nr, finma_id = doc_tuple
+                berichtsjahr = None
             else:
                 doc_name, file_path, geschaeft_nr = doc_tuple
                 finma_id = None
+                berichtsjahr = None
             try:
                 # Validate file exists
                 if not file_path.exists():
@@ -147,7 +152,7 @@ class ORSAPipeline:
                 
                 # Process file through quality checks
                 version_info, check_results = self.processor.process_file(
-                    institute_id, file_path, geschaeft_nr
+                    institute_id, file_path, geschaeft_nr, berichtsjahr
                 )
                 
                 # Update statistics
