@@ -206,10 +206,11 @@ class ReportGenerator:
     def _apply_institut_metadata(self, institute_id: str) -> bool:
         """Apply institut metadata to workbook cells.
         
-        Writes institute metadata to cells C3, C4, and C5 on the Auswertung sheet:
-        - C3: FinmaID
-        - C4: FinmaObjektName
-        - C5: MitarbeiterName
+        Writes institute metadata to cells on the Auswertung sheet:
+        - E2: FinmaObjektName
+        - E3: FinmaID
+        - E4: Aufsichtskategorie
+        - E6: MitarbeiterName
         
         Args:
             institute_id: Institute identifier (FinmaID)
@@ -231,9 +232,10 @@ class ReportGenerator:
             # Define the target sheet and cell mappings
             sheet_name = "Auswertung"
             metadata_mappings = [
-                ("C3", "FINMAID", "FinmaID"),
-                ("C4", "FinmaObjektName", "FinmaObjektName"),
-                ("C5", "MitarbeiterName", "MitarbeiterName")
+                ("E2", "FinmaObjektName", "FinmaObjektName"),
+                ("E3", "FINMAID", "FinmaID"),
+                ("E4", "Aufsichtskategorie", "Aufsichtskategorie"),
+                ("E6", "MitarbeiterName", "MitarbeiterName")
             ]
             
             # Write each metadata field to its corresponding cell
@@ -261,8 +263,8 @@ class ReportGenerator:
                 else:
                     logger.warning(f"{field_name} is None for institute {institute_id}")
             
-            logger.info(f"Applied {success_count}/3 institut metadata fields to report")
-            return success_count == 3
+            logger.info(f"Applied {success_count}/4 institut metadata fields to report")
+            return success_count == 4
             
         except Exception as e:
             logger.error(f"Failed to apply institut metadata: {e}")

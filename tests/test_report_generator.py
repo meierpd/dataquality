@@ -16,7 +16,7 @@ def mock_db_manager():
             'institute_id': 'INST001',
             'check_name': 'sst_three_years_filled',
             'outcome_bool': 1,
-            'outcome_numeric': None
+            'outcome_str': 'genügend'
         }
     ])
     mock.get_institute_metadata = Mock(return_value={
@@ -27,6 +27,7 @@ def mock_db_manager():
     mock.get_institut_metadata_by_finmaid = Mock(return_value={
         'FINMAID': 'INST001',
         'FinmaObjektName': 'Test Institute Ltd.',
+        'Aufsichtskategorie': 'Kategorie 1',
         'MitarbeiterName': 'John Doe'
     })
     return mock
@@ -76,14 +77,15 @@ class TestReportGeneratorInstitutMetadata:
         # Verify database was queried
         mock_db_manager.get_institut_metadata_by_finmaid.assert_called_once_with("INST001")
         
-        # Verify all three fields were written
-        assert mock_template_manager.write_cell_value.call_count == 3
+        # Verify all four fields were written
+        assert mock_template_manager.write_cell_value.call_count == 4
         
         # Verify the correct cells and values
         calls = mock_template_manager.write_cell_value.call_args_list
-        assert calls[0][0] == ("Auswertung", "C3", "INST001")
-        assert calls[1][0] == ("Auswertung", "C4", "Test Institute Ltd.")
-        assert calls[2][0] == ("Auswertung", "C5", "John Doe")
+        assert calls[0][0] == ("Auswertung", "E2", "Test Institute Ltd.")
+        assert calls[1][0] == ("Auswertung", "E3", "INST001")
+        assert calls[2][0] == ("Auswertung", "E4", "Kategorie 1")
+        assert calls[3][0] == ("Auswertung", "E6", "John Doe")
         
         # Verify success
         assert result is True
@@ -115,14 +117,15 @@ class TestReportGeneratorInstitutMetadata:
         mock_db_manager.get_institut_metadata_by_finmaid.return_value = {
             'FINMAID': 'INST001',
             'FinmaObjektName': 'Test Institute Ltd.',
+            'Aufsichtskategorie': 'Kategorie 1',
             'MitarbeiterName': None  # Missing value
         }
         
         # Call the method
         result = report_generator._apply_institut_metadata("INST001")
         
-        # Verify only 2 fields were written (excluding the None value)
-        assert mock_template_manager.write_cell_value.call_count == 2
+        # Verify only 3 fields were written (excluding the None value)
+        assert mock_template_manager.write_cell_value.call_count == 3
         
         # Verify failure (not all fields written)
         assert result is False
@@ -132,7 +135,7 @@ class TestReportGeneratorInstitutMetadata:
     ):
         """Test when writing to cell fails."""
         # Mock write failure for one cell
-        mock_template_manager.write_cell_value.side_effect = [True, False, True]
+        mock_template_manager.write_cell_value.side_effect = [True, False, True, True]
         
         # Call the method
         result = report_generator._apply_institut_metadata("INST001")

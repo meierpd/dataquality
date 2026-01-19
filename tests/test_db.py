@@ -20,7 +20,7 @@ def sample_check_result():
         check_name="test_check",
         check_description="Test check description",
         outcome_bool=True,
-        outcome_numeric=42.0,
+        outcome_str="genügend",
         processed_at=datetime(2023, 1, 1, 12, 0, 0),
     )
 
@@ -57,10 +57,10 @@ class TestCheckResult:
         assert sample_check_result.file_name == "test_file.xlsx"
         assert sample_check_result.check_name == "test_check"
         assert sample_check_result.outcome_bool is True
-        assert sample_check_result.outcome_numeric == 42.0
+        assert sample_check_result.outcome_str == "genügend"
 
-    def test_with_optional_numeric(self):
-        """Test CheckResult with optional numeric value."""
+    def test_with_optional_str(self):
+        """Test CheckResult with optional string value."""
         result = CheckResult(
             institute_id="INST002",
             file_name="file.xlsx",
@@ -69,14 +69,14 @@ class TestCheckResult:
             check_name="check_name",
             check_description="Description",
             outcome_bool=False,
-            outcome_numeric=None,
+            outcome_str=None,
             processed_at=datetime.now(),
         )
         
         assert result.institute_id == "INST002"
         assert result.version_number == 2
         assert result.outcome_bool is False
-        assert result.outcome_numeric is None
+        assert result.outcome_str is None
 
 
 class TestDatabaseManagerInstitutMetadata:

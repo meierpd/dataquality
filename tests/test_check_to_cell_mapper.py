@@ -56,42 +56,34 @@ class TestGetCellLocation:
 class TestGetValueFromResult:
     """Test get_value_from_result method."""
     
-    def test_bool_value_fulfilled(self):
-        """Test extracting bool value when check is fulfilled (1)."""
+    def test_outcome_str_value(self):
+        """Test extracting outcome_str value."""
         mapper = CheckToCellMapper()
-        result = {"outcome_bool": 1, "outcome_numeric": None}
+        result = {"outcome_bool": 1, "outcome_str": "genügend"}
         
-        value = mapper.get_value_from_result(result, "Sheet1", "A1", "bool")
-        assert value == "erfüllt"
+        value = mapper.get_value_from_result(result, "Sheet1", "A1", "outcome_str")
+        assert value == "genügend"
     
-    def test_bool_value_not_fulfilled(self):
-        """Test extracting bool value when check is not fulfilled (0)."""
+    def test_outcome_str_value_numeric(self):
+        """Test extracting outcome_str value when it contains a numeric string."""
         mapper = CheckToCellMapper()
-        result = {"outcome_bool": 0, "outcome_numeric": None}
+        result = {"outcome_bool": 1, "outcome_str": "42.5"}
         
-        value = mapper.get_value_from_result(result, "Sheet1", "A1", "bool")
-        assert value == "nicht erfüllt"
+        value = mapper.get_value_from_result(result, "Sheet1", "A1", "outcome_str")
+        assert value == "42.5"
     
-    def test_metric_value(self):
-        """Test extracting metric value."""
+    def test_outcome_bool_value(self):
+        """Test extracting outcome_bool value."""
         mapper = CheckToCellMapper()
-        result = {"outcome_bool": 1, "outcome_numeric": 42.5}
+        result = {"outcome_bool": 1, "outcome_str": "genügend"}
         
-        value = mapper.get_value_from_result(result, "Sheet1", "A1", "metric")
-        assert value == 42.5
-    
-    def test_metric_value_none(self):
-        """Test extracting metric value when it's None."""
-        mapper = CheckToCellMapper()
-        result = {"outcome_bool": 1, "outcome_numeric": None}
-        
-        value = mapper.get_value_from_result(result, "Sheet1", "A1", "metric")
-        assert value is None
+        value = mapper.get_value_from_result(result, "Sheet1", "A1", "outcome_bool")
+        assert value == 1
     
     def test_unknown_value_type(self):
         """Test extracting value with unknown type returns None."""
         mapper = CheckToCellMapper()
-        result = {"outcome_bool": 1, "outcome_numeric": 42}
+        result = {"outcome_bool": 1, "outcome_str": "genügend"}
         
         value = mapper.get_value_from_result(result, "Sheet1", "A1", "unknown")
         assert value is None
@@ -155,4 +147,4 @@ class TestDefaultMappings:
             sheet_name, cell_address, value_type = mapping
             assert isinstance(sheet_name, str)
             assert isinstance(cell_address, str)
-            assert value_type in ["bool", "metric"]
+            assert value_type in ["outcome_str", "outcome_bool"]

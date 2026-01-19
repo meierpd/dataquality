@@ -92,7 +92,7 @@ class DocumentProcessor:
             logger.info(f"Running {len(all_checks)} checks on {file_path.name}")
 
             for check_name, check_function in all_checks:
-                outcome, numeric_value, description = run_check(
+                outcome, outcome_str, description = run_check(
                     check_name, check_function, workbook
                 )
 
@@ -104,7 +104,7 @@ class DocumentProcessor:
                     check_name=check_name,
                     check_description=description,
                     outcome_bool=outcome,
-                    outcome_numeric=numeric_value,
+                    outcome_str=outcome_str,
                     processed_at=processed_at,
                     geschaeft_nr=geschaeft_nr,
                     berichtsjahr=berichtsjahr,
