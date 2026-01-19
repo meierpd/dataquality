@@ -6,7 +6,6 @@ from typing import Any
 
 from openpyxl import load_workbook
 from openpyxl.workbook.workbook import Workbook
-from openpyxl.worksheet.worksheet import Worksheet
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +13,10 @@ logger = logging.getLogger(__name__)
 class ExcelTemplateManager:
     """Manages Excel template operations for report generation.
     
-    This manager creates standalone report files from templates:
-    1. Load the template file
-    2. Copy all template sheets to a new workbook
-    3. The source file is referenced but not included in the output
+    This manager loads the template file directly and modifies it in place.
+    This approach preserves all formatting including conditional formatting,
+    data validation, and other advanced Excel features that would be lost
+    when copying sheets cell by cell.
     """
 
     def __init__(self, template_path: Path):
@@ -37,16 +36,17 @@ class ExcelTemplateManager:
         logger.info(f"Template manager initialized with: {template_path}")
 
     def create_output_workbook(self, source_path: Path) -> Workbook:
-        """Create standalone output workbook from template.
+        """Load template workbook for modification.
 
-        This method creates a new workbook containing only the template sheets.
+        This method loads the template file directly. The workbook can then be
+        modified and saved to a different location, preserving all formatting.
         The source file path is validated but its content is not included in the output.
 
         Args:
             source_path: Path to source ORSA Excel file (for validation only)
 
         Returns:
-            Output workbook containing only template sheets
+            Template workbook ready for modification
             
         Raises:
             FileNotFoundError: If source file doesn't exist
@@ -54,71 +54,15 @@ class ExcelTemplateManager:
         if not source_path.exists():
             raise FileNotFoundError(f"Source file not found: {source_path}")
 
-        # Load template file
-        template_wb = load_workbook(self.template_path)
-        logger.debug(f"Loaded template with sheets: {template_wb.sheetnames}")
-
-        # Create a new workbook for output
-        self.output_wb = Workbook()
-        
-        # Remove default sheet if it exists
-        if "Sheet" in self.output_wb.sheetnames:
-            self.output_wb.remove(self.output_wb["Sheet"])
-        
-        # Copy all template sheets to output workbook
-        template_sheet_names = list(template_wb.sheetnames)
-        for sheet_name in template_sheet_names:
-            # Copy the template sheet
-            self._copy_sheet(template_wb[sheet_name], self.output_wb, sheet_name)
-            logger.debug(f"Copied template sheet: {sheet_name}")
+        # Load template file directly - this preserves all formatting including
+        # conditional formatting, data validation, and other advanced features
+        self.output_wb = load_workbook(self.template_path)
+        logger.debug(f"Loaded template with sheets: {self.output_wb.sheetnames}")
 
         logger.info(
-            f"Created standalone output workbook with {len(self.output_wb.sheetnames)} template sheet(s)"
+            f"Loaded template workbook with {len(self.output_wb.sheetnames)} sheet(s)"
         )
         return self.output_wb
-
-    def _copy_sheet(
-        self, source_sheet: Worksheet, target_wb: Workbook, new_name: str
-    ) -> Worksheet:
-        """Copy a worksheet to target workbook with all styles and formatting.
-
-        Args:
-            source_sheet: Source worksheet to copy
-            target_wb: Target workbook
-            new_name: Name for the new sheet
-
-        Returns:
-            Newly created worksheet
-        """
-        target_sheet = target_wb.create_sheet(new_name)
-
-        # Copy cell values and styles
-        for row in source_sheet.iter_rows():
-            for cell in row:
-                target_cell = target_sheet[cell.coordinate]
-                target_cell.value = cell.value
-
-                # Copy styles if present
-                if cell.has_style:
-                    target_cell.font = cell.font.copy()
-                    target_cell.border = cell.border.copy()
-                    target_cell.fill = cell.fill.copy()
-                    target_cell.number_format = cell.number_format
-                    target_cell.alignment = cell.alignment.copy()
-
-        # Copy column dimensions
-        for col_letter, dim in source_sheet.column_dimensions.items():
-            target_sheet.column_dimensions[col_letter].width = dim.width
-
-        # Copy row dimensions
-        for row_num, dim in source_sheet.row_dimensions.items():
-            target_sheet.row_dimensions[row_num].height = dim.height
-
-        # Copy merged cells
-        for merged_range in source_sheet.merged_cells.ranges:
-            target_sheet.merge_cells(str(merged_range))
-
-        return target_sheet
 
     def write_cell_value(
         self, sheet_name: str, cell_address: str, value: Any
