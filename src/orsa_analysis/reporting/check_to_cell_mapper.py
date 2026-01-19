@@ -4,13 +4,13 @@ from typing import Any, Dict, Optional, Tuple
 
 
 # Simple mapping: check_name -> (sheet_name, cell_address, value_type)
-# value_type can be: "bool" or "metric"
+# value_type can be: "bool", "outcome_str", or "outcome_bool"
 # Note: check_name should match the name registered in REGISTERED_CHECKS (rules.py)
 CHECK_MAPPINGS: Dict[str, Tuple[str, str, str]] = {
     "sst_three_years_filled": ("Auswertung", "C8", "bool"),
     # Add more mappings here as needed:
     # "check_name": ("SheetName", "A1", "bool"),
-    # "check_name_with_metric": ("SheetName", "A2", "metric"),
+    # "check_name_with_outcome_str": ("SheetName", "A2", "outcome_str"),
 }
 
 
@@ -56,7 +56,7 @@ class CheckToCellMapper:
             check_result: Dictionary containing check result data
             sheet_name: Sheet name (not used, for API compatibility)
             cell_address: Cell address (not used, for API compatibility)
-            value_type: Type of value to extract ("bool" or "metric")
+            value_type: Type of value to extract ("bool", "outcome_str", or "outcome_bool")
             
         Returns:
             Formatted value ready for cell insertion
@@ -67,8 +67,10 @@ class CheckToCellMapper:
                 return "erfüllt"
             else:
                 return "nicht erfüllt"
-        elif value_type == "metric":
-            return check_result.get("outcome_numeric")
+        elif value_type == "outcome_str":
+            return check_result.get("outcome_str")
+        elif value_type == "outcome_bool":
+            return check_result.get("outcome_bool")
         else:
             return None
     

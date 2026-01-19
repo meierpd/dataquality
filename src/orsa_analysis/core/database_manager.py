@@ -24,7 +24,7 @@ class CheckResult:
     check_name: str
     check_description: str
     outcome_bool: bool
-    outcome_numeric: Optional[float]
+    outcome_str: Optional[str]
     processed_at: datetime
     geschaeft_nr: Optional[str] = None
     berichtsjahr: Optional[int] = None
@@ -132,7 +132,7 @@ class DatabaseManager:
             "check_name": r.check_name,
             "check_description": r.check_description,
             "outcome_bool": int(r.outcome_bool),
-            "outcome_numeric": r.outcome_numeric,
+            "outcome_str": r.outcome_str,
             "processed_timestamp": r.processed_at,
             "geschaeft_nr": r.geschaeft_nr,
             "berichtsjahr": r.berichtsjahr,
@@ -188,7 +188,7 @@ class DatabaseManager:
                     check_name,
                     check_description,
                     outcome_bool,
-                    outcome_numeric,
+                    outcome_str,
                     processed_timestamp,
                     geschaeft_nr,
                     berichtsjahr

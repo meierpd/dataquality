@@ -16,7 +16,7 @@ def mock_db_manager():
             'institute_id': 'INST001',
             'check_name': 'sst_three_years_filled',
             'outcome_bool': 1,
-            'outcome_numeric': None
+            'outcome_str': 'genügend'
         }
     ])
     mock.get_institute_metadata = Mock(return_value={

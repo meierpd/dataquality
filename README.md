@@ -22,9 +22,9 @@ This project provides an automated way to validate Excel files submitted by inst
 2. **Versioning**: Each file is hashed. A new version is created whenever a new hash appears for the same institute.
 3. **Rule Engine**: Checks are simple Python functions registered in a list. Each receives a workbook and returns:
 
-   * Boolean outcome
-   * Optional numeric value
-   * Description string
+   * Boolean outcome (True/False)
+   * Outcome string (e.g., 'genügend', 'zu prüfen', or a numeric value as string)
+   * Description string (explains why the outcome is as it is)
 4. **Database Writer**: Each result is written as a separate row, including metadata.
 5. **Excel Report Generator**: A formatted workbook is created for each institute showing results plus empty fields for manual assessment.
 
@@ -450,14 +450,14 @@ from openpyxl.workbook.workbook import Workbook
 from typing import Optional, Tuple
 from orsa_analysis.checks.sheet_mapper import SheetNameMapper
 
-def check_example(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+def check_example(wb: Workbook) -> Tuple[bool, str, str]:
     """Example check using multi-language sheet mapping.
     
     Args:
         wb: Workbook to check
         
     Returns:
-        Tuple of (outcome, numeric_value, description)
+        Tuple of (outcome_bool, outcome_str, description)
     """
     # Create mapper - automatically detects language
     mapper = SheetNameMapper(wb)
@@ -467,13 +467,14 @@ def check_example(wb: Workbook) -> Tuple[bool, Optional[float], str]:
     results_sheet = mapper.get_sheet("Ergebnisse_AVO-FINMA")
     
     if results_sheet is None:
-        return False, None, "Required sheet not found"
+        return False, "zu prüfen", "Required sheet not found"
     
     # Check your data
     value = results_sheet["A1"].value
     outcome = value is not None
+    outcome_str = "genügend" if outcome else "zu prüfen"
     
-    return outcome, 1.0 if outcome else 0.0, "Example check passed"
+    return outcome, outcome_str, "Example check passed"
 ```
 
 ## Adding a New Check
@@ -482,21 +483,21 @@ To add a check, open `src/orsa_analysis/checks/rules.py` and define a new functi
 
 ```python
 from openpyxl.workbook.workbook import Workbook
-from typing import Optional, Tuple
+from typing import Tuple
 
-def check_example(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+def check_example(wb: Workbook) -> Tuple[bool, str, str]:
     """Your custom check logic.
     
     Args:
         wb: Workbook to check
         
     Returns:
-        Tuple of (outcome, numeric_value, description)
+        Tuple of (outcome_bool, outcome_str, description)
     """
-    desc = "Example description"
+    desc = "Example check verifies data quality"
     outcome = True
-    value = 42.0  # Optional numeric outcome
-    return outcome, value, desc
+    outcome_str = "genügend"  # Could also be 'zu prüfen' or a numeric value like '5.1'
+    return outcome, outcome_str, desc
 ```
 
 Then add the function to the `REGISTERED_CHECKS` list in the same file:
@@ -524,7 +525,7 @@ Columns:
 * check_name (NVARCHAR(100))
 * check_description (NVARCHAR(MAX))
 * outcome_bool (BIT)
-* outcome_numeric (FLOAT, NULL)
+* outcome_str (NVARCHAR(100), NULL) - String outcome (e.g., 'genügend', 'zu prüfen', or numeric value as string)
 * berichtsjahr (INT, NULL) - Reporting year for the document
 * geschaeft_nr (NVARCHAR(50), NULL) - Business number (unique per institute/year)
 * processed_timestamp (DATETIME2, DEFAULT GETDATE())

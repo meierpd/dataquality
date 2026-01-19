@@ -37,7 +37,7 @@ CREATE TABLE gbi.orsa_analysis_data (
     
     -- Check outcomes
     outcome_bool BIT NOT NULL,  -- Pass (1) or Fail (0)
-    outcome_numeric FLOAT NULL,  -- Optional numeric outcome
+    outcome_str NVARCHAR(100) NULL,  -- String outcome (e.g., "genügend", "zu prüfen", or numeric value as string)
     
     -- Metadata
     processed_timestamp DATETIME2 NOT NULL DEFAULT GETDATE(),
@@ -180,10 +180,10 @@ GO
 
 EXEC sp_addextendedproperty 
     @name = N'MS_Description', 
-    @value = N'Optional numeric outcome (e.g., count, percentage)', 
+    @value = N'String outcome value (e.g., "genügend", "zu prüfen", or numeric value as string)', 
     @level0type = N'SCHEMA', @level0name = 'gbi',
     @level1type = N'TABLE', @level1name = 'orsa_analysis_data',
-    @level2type = N'COLUMN', @level2name = 'outcome_numeric';
+    @level2type = N'COLUMN', @level2name = 'outcome_str';
 GO
 
 EXEC sp_addextendedproperty 

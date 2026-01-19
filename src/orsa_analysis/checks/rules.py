@@ -1,7 +1,7 @@
 """Quality check rules and registry.
 
 Each check function receives a Workbook object and returns a tuple:
-(outcome_bool, outcome_numeric, description)
+(outcome_bool, outcome_str, description)
 """
 
 from typing import Callable, Optional, Tuple
@@ -12,32 +12,33 @@ from .sheet_mapper import SheetNameMapper
 
 logger = logging.getLogger(__name__)
 
-CheckFunction = Callable[[Workbook], Tuple[bool, Optional[float], str]]
+CheckFunction = Callable[[Workbook], Tuple[bool, str, str]]
 
 
-def check_has_sheets(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+def check_has_sheets(wb: Workbook) -> Tuple[bool, str, str]:
     """Verify that the workbook contains at least one sheet.
 
     Args:
         wb: Workbook to check
 
     Returns:
-        Tuple of (outcome, sheet_count, description)
+        Tuple of (outcome, outcome_str, description)
     """
     sheet_count = len(wb.sheetnames)
     outcome = sheet_count > 0
+    outcome_str = str(sheet_count)
     description = f"Workbook contains {sheet_count} sheet(s)"
-    return outcome, float(sheet_count), description
+    return outcome, outcome_str, description
 
 
-def check_no_empty_sheets(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+def check_no_empty_sheets(wb: Workbook) -> Tuple[bool, str, str]:
     """Verify that no sheets are completely empty.
 
     Args:
         wb: Workbook to check
 
     Returns:
-        Tuple of (outcome, empty_count, description)
+        Tuple of (outcome, outcome_str, description)
     """
     empty_count = 0
     for sheet in wb.worksheets:
@@ -59,65 +60,68 @@ def check_no_empty_sheets(wb: Workbook) -> Tuple[bool, Optional[float], str]:
             logger.warning(f"Empty sheet found: {sheet.title}")
 
     outcome = empty_count == 0
+    outcome_str = "genügend" if outcome else "zu prüfen"
     description = (
         f"Found {empty_count} empty sheet(s)"
         if empty_count > 0
         else "All sheets contain data"
     )
-    return outcome, float(empty_count), description
+    return outcome, outcome_str, description
 
 
-def check_first_sheet_has_data(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+def check_first_sheet_has_data(wb: Workbook) -> Tuple[bool, str, str]:
     """Verify that the first sheet has data in cell A1.
 
     Args:
         wb: Workbook to check
 
     Returns:
-        Tuple of (outcome, None, description)
+        Tuple of (outcome, outcome_str, description)
     """
     if not wb.worksheets:
-        return False, None, "No worksheets found"
+        return False, "zu prüfen", "No worksheets found"
 
     first_sheet = wb.worksheets[0]
     cell_a1 = first_sheet["A1"].value
     outcome = cell_a1 is not None
+    outcome_str = "genügend" if outcome else "zu prüfen"
     description = (
         f"First sheet '{first_sheet.title}' has data in A1"
         if outcome
         else f"First sheet '{first_sheet.title}' has no data in A1"
     )
-    return outcome, None, description
+    return outcome, outcome_str, description
 
 
-def check_sheet_names_unique(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+def check_sheet_names_unique(wb: Workbook) -> Tuple[bool, str, str]:
     """Verify that all sheet names are unique (should always pass in openpyxl).
 
     Args:
         wb: Workbook to check
 
     Returns:
-        Tuple of (outcome, unique_count, description)
+        Tuple of (outcome, outcome_str, description)
     """
     sheet_names = wb.sheetnames
     unique_names = set(sheet_names)
     outcome = len(sheet_names) == len(unique_names)
+    outcome_str = str(len(unique_names))
     description = (
         "All sheet names are unique"
         if outcome
         else f"Duplicate sheet names found: {len(sheet_names)} total, {len(unique_names)} unique"
     )
-    return outcome, float(len(unique_names)), description
+    return outcome, outcome_str, description
 
 
-def check_row_count_reasonable(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+def check_row_count_reasonable(wb: Workbook) -> Tuple[bool, str, str]:
     """Verify that sheets don't have an unreasonable number of rows.
 
     Args:
         wb: Workbook to check
 
     Returns:
-        Tuple of (outcome, max_rows, description)
+        Tuple of (outcome, outcome_str, description)
     """
     max_allowed_rows = 1_000_000
     max_rows = 0
@@ -127,15 +131,16 @@ def check_row_count_reasonable(wb: Workbook) -> Tuple[bool, Optional[float], str
             max_rows = sheet.max_row
 
     outcome = max_rows <= max_allowed_rows
+    outcome_str = str(max_rows)
     description = (
         f"Maximum row count is {max_rows:,} (within limit)"
         if outcome
         else f"Maximum row count is {max_rows:,} (exceeds limit of {max_allowed_rows:,})"
     )
-    return outcome, float(max_rows), description
+    return outcome, outcome_str, description
 
 
-def check_has_expected_headers(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+def check_has_expected_headers(wb: Workbook) -> Tuple[bool, str, str]:
     """Check if the first sheet has headers in the first row.
 
     This is a simplified example that just checks if first row has values.
@@ -144,14 +149,14 @@ def check_has_expected_headers(wb: Workbook) -> Tuple[bool, Optional[float], str
         wb: Workbook to check
 
     Returns:
-        Tuple of (outcome, header_count, description)
+        Tuple of (outcome, outcome_str, description)
     """
     if not wb.worksheets:
-        return False, 0.0, "No worksheets found"
+        return False, "0", "No worksheets found"
 
     first_sheet = wb.worksheets[0]
     if first_sheet.max_row == 0:
-        return False, 0.0, f"Sheet '{first_sheet.title}' is empty"
+        return False, "0", f"Sheet '{first_sheet.title}' is empty"
 
     header_count = 0
     for cell in first_sheet[1]:
@@ -159,15 +164,16 @@ def check_has_expected_headers(wb: Workbook) -> Tuple[bool, Optional[float], str
             header_count += 1
 
     outcome = header_count > 0
+    outcome_str = str(header_count)
     description = (
         f"Found {header_count} non-empty header cell(s) in first row"
         if outcome
         else "No headers found in first row"
     )
-    return outcome, float(header_count), description
+    return outcome, outcome_str, description
 
 
-def check_no_merged_cells(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+def check_no_merged_cells(wb: Workbook) -> Tuple[bool, str, str]:
     """Check if workbook contains any merged cells.
 
     Note: This check does not work with read-only mode workbooks.
@@ -176,7 +182,7 @@ def check_no_merged_cells(wb: Workbook) -> Tuple[bool, Optional[float], str]:
         wb: Workbook to check
 
     Returns:
-        Tuple of (outcome, merged_count, description)
+        Tuple of (outcome, outcome_str, description)
     """
     merged_count = 0
     try:
@@ -185,21 +191,22 @@ def check_no_merged_cells(wb: Workbook) -> Tuple[bool, Optional[float], str]:
                 merged_count += len(sheet.merged_cells.ranges)
             else:
                 logger.warning(f"Sheet '{sheet.title}' does not support merged_cells check (likely read-only mode)")
-                return True, None, "Merged cells check skipped (read-only mode)"
+                return True, "genügend", "Merged cells check skipped (read-only mode)"
     except AttributeError:
         logger.warning("Workbook does not support merged_cells check (likely read-only mode)")
-        return True, None, "Merged cells check skipped (read-only mode)"
+        return True, "genügend", "Merged cells check skipped (read-only mode)"
 
     outcome = merged_count == 0
+    outcome_str = "genügend" if outcome else str(merged_count)
     description = (
         "No merged cells found"
         if outcome
         else f"Found {merged_count} merged cell range(s)"
     )
-    return outcome, float(merged_count), description
+    return outcome, outcome_str, description
 
 
-def check_sst_three_years_filled(wb: Workbook) -> Tuple[bool, Optional[float], str]:
+def check_sst_three_years_filled(wb: Workbook) -> Tuple[bool, str, str]:
     """Check if SST values are filled for three years in Results_ISO-FINMA sheet.
 
     Checks cells E42:G42, E43:G43, and E45:G45 in the 'Ergebnisse_AVO-FINMA' sheet
@@ -209,14 +216,14 @@ def check_sst_three_years_filled(wb: Workbook) -> Tuple[bool, Optional[float], s
         wb: Workbook to check
 
     Returns:
-        Tuple of (outcome, empty_count, description)
+        Tuple of (outcome, outcome_str, description)
     """
     try:
         mapper = SheetNameMapper(wb)
         sheet = mapper.get_sheet("Ergebnisse_AVO-FINMA")
         
         if sheet is None:
-            return False, None, "Sheet 'Ergebnisse_AVO-FINMA' not found in workbook"
+            return False, "zu prüfen", "Sheet 'Ergebnisse_AVO-FINMA' not found in workbook"
         
         # Define cells to check: E42:G42, E43:G43, E45:G45
         cells_to_check = [
@@ -236,17 +243,18 @@ def check_sst_three_years_filled(wb: Workbook) -> Tuple[bool, Optional[float], s
                     empty_count += 1
         
         outcome = empty_count == 0
+        outcome_str = "genügend" if outcome else "zu prüfen"
         description = (
             "SST is filled in for three years"
             if outcome
             else f"SST is not filled in for three years ({empty_count} of {total_cells} cells are empty)"
         )
         
-        return outcome, float(empty_count), description
+        return outcome, outcome_str, description
         
     except Exception as e:
         logger.error(f"Error in SST three years check: {e}")
-        return False, None, f"Check failed with error: {str(e)}"
+        return False, "zu prüfen", f"Check failed with error: {str(e)}"
 
 
 REGISTERED_CHECKS: list[Tuple[str, CheckFunction]] = [
@@ -272,7 +280,7 @@ def get_all_checks() -> list[Tuple[str, CheckFunction]]:
 
 def run_check(
     check_name: str, check_function: CheckFunction, workbook: Workbook
-) -> Tuple[bool, Optional[float], str]:
+) -> Tuple[bool, str, str]:
     """Execute a single check with error handling.
 
     Args:
@@ -281,10 +289,10 @@ def run_check(
         workbook: Workbook to check
 
     Returns:
-        Tuple of (outcome, numeric_value, description)
+        Tuple of (outcome, outcome_str, description)
     """
     try:
         return check_function(workbook)
     except Exception as e:
         logger.error(f"Check '{check_name}' failed with error: {e}")
-        return False, None, f"Check failed with error: {str(e)}"
+        return False, "zu prüfen", f"Check failed with error: {str(e)}"

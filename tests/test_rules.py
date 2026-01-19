@@ -56,18 +56,18 @@ class TestCheckHasSheets:
 
     def test_workbook_with_sheets(self, basic_workbook):
         """Test workbook with sheets passes check."""
-        outcome, value, description = check_has_sheets(basic_workbook)
+        outcome, outcome_str, description = check_has_sheets(basic_workbook)
 
         assert outcome is True
-        assert value == 1.0
+        assert outcome_str == "1"
         assert "1" in description
 
     def test_workbook_multiple_sheets(self, multi_sheet_workbook):
         """Test workbook with multiple sheets."""
-        outcome, value, description = check_has_sheets(multi_sheet_workbook)
+        outcome, outcome_str, description = check_has_sheets(multi_sheet_workbook)
 
         assert outcome is True
-        assert value == 2.0
+        assert outcome_str == "2"
         assert "2" in description
 
 
@@ -76,10 +76,10 @@ class TestCheckNoEmptySheets:
 
     def test_workbook_with_data(self, basic_workbook):
         """Test workbook with data passes check."""
-        outcome, value, description = check_no_empty_sheets(basic_workbook)
+        outcome, outcome_str, description = check_no_empty_sheets(basic_workbook)
 
         assert outcome is True
-        assert value == 0.0
+        assert outcome_str == "genügend"
         assert "All sheets contain data" in description
 
     def test_workbook_with_empty_sheet(self):
@@ -88,10 +88,10 @@ class TestCheckNoEmptySheets:
         wb.active["A1"] = "Data"
         wb.create_sheet("EmptySheet")
 
-        outcome, value, description = check_no_empty_sheets(wb)
+        outcome, outcome_str, description = check_no_empty_sheets(wb)
 
         assert outcome is False
-        assert value == 1.0
+        assert outcome_str == "zu prüfen"
         assert "1 empty sheet" in description
 
 
@@ -100,18 +100,18 @@ class TestCheckFirstSheetHasData:
 
     def test_first_sheet_has_data(self, basic_workbook):
         """Test first sheet with data passes check."""
-        outcome, value, description = check_first_sheet_has_data(basic_workbook)
+        outcome, outcome_str, description = check_first_sheet_has_data(basic_workbook)
 
         assert outcome is True
-        assert value is None
+        assert outcome_str == "genügend"
         assert "has data in A1" in description
 
     def test_first_sheet_no_data(self, empty_workbook):
         """Test first sheet without data fails check."""
-        outcome, value, description = check_first_sheet_has_data(empty_workbook)
+        outcome, outcome_str, description = check_first_sheet_has_data(empty_workbook)
 
         assert outcome is False
-        assert value is None
+        assert outcome_str == "zu prüfen"
         assert "no data in A1" in description
 
 
@@ -120,18 +120,18 @@ class TestCheckSheetNamesUnique:
 
     def test_unique_sheet_names(self, basic_workbook):
         """Test workbook with unique sheet names passes check."""
-        outcome, value, description = check_sheet_names_unique(basic_workbook)
+        outcome, outcome_str, description = check_sheet_names_unique(basic_workbook)
 
         assert outcome is True
-        assert value == 1.0
+        assert outcome_str == "1"
         assert "unique" in description
 
     def test_multiple_unique_sheets(self, multi_sheet_workbook):
         """Test multiple sheets with unique names."""
-        outcome, value, description = check_sheet_names_unique(multi_sheet_workbook)
+        outcome, outcome_str, description = check_sheet_names_unique(multi_sheet_workbook)
 
         assert outcome is True
-        assert value == 2.0
+        assert outcome_str == "2"
 
 
 class TestCheckRowCountReasonable:
@@ -139,18 +139,18 @@ class TestCheckRowCountReasonable:
 
     def test_reasonable_row_count(self, basic_workbook):
         """Test workbook with reasonable row count passes check."""
-        outcome, value, description = check_row_count_reasonable(basic_workbook)
+        outcome, outcome_str, description = check_row_count_reasonable(basic_workbook)
 
         assert outcome is True
-        assert value == 2.0
+        assert outcome_str == "2"
         assert "within limit" in description
 
     def test_empty_sheet_row_count(self, empty_workbook):
         """Test empty sheet has reasonable row count."""
-        outcome, value, description = check_row_count_reasonable(empty_workbook)
+        outcome, outcome_str, description = check_row_count_reasonable(empty_workbook)
 
         assert outcome is True
-        assert value == 1.0
+        assert outcome_str == "1"
 
 
 class TestCheckHasExpectedHeaders:
@@ -158,15 +158,15 @@ class TestCheckHasExpectedHeaders:
 
     def test_workbook_with_headers(self, basic_workbook):
         """Test workbook with headers passes check."""
-        outcome, value, description = check_has_expected_headers(basic_workbook)
+        outcome, outcome_str, description = check_has_expected_headers(basic_workbook)
 
         assert outcome is True
-        assert value == 2.0
+        assert outcome_str == "2"
         assert "2 non-empty header" in description
 
     def test_workbook_without_headers(self, empty_workbook):
         """Test empty workbook fails header check."""
-        outcome, value, description = check_has_expected_headers(empty_workbook)
+        outcome, outcome_str, description = check_has_expected_headers(empty_workbook)
 
         assert outcome is False
         assert "No headers found" in description or "empty" in description.lower()
@@ -177,10 +177,10 @@ class TestCheckNoMergedCells:
 
     def test_no_merged_cells(self, basic_workbook):
         """Test workbook without merged cells passes check."""
-        outcome, value, description = check_no_merged_cells(basic_workbook)
+        outcome, outcome_str, description = check_no_merged_cells(basic_workbook)
 
         assert outcome is True
-        assert value == 0.0
+        assert outcome_str == "genügend"
         assert "No merged cells" in description
 
     def test_with_merged_cells(self):
@@ -189,10 +189,10 @@ class TestCheckNoMergedCells:
         ws = wb.active
         ws.merge_cells("A1:B2")
 
-        outcome, value, description = check_no_merged_cells(wb)
+        outcome, outcome_str, description = check_no_merged_cells(wb)
 
         assert outcome is False
-        assert value == 1.0
+        assert outcome_str == "1"
         assert "merged cell" in description
 
 
@@ -240,10 +240,10 @@ class TestCheckSSTThreeYearsFilled:
             for col in ["E", "F", "G"]:
                 sheet[f"{col}{row}"] = 100.0
         
-        outcome, value, description = check_sst_three_years_filled(wb)
+        outcome, outcome_str, description = check_sst_three_years_filled(wb)
         
         assert outcome is True
-        assert value == 0.0
+        assert outcome_str == "genügend"
         assert "filled in for three years" in description
 
     def test_sst_all_cells_filled_english(self):
@@ -257,10 +257,10 @@ class TestCheckSSTThreeYearsFilled:
             for col in ["E", "F", "G"]:
                 sheet[f"{col}{row}"] = 100.0
         
-        outcome, value, description = check_sst_three_years_filled(wb)
+        outcome, outcome_str, description = check_sst_three_years_filled(wb)
         
         assert outcome is True
-        assert value == 0.0
+        assert outcome_str == "genügend"
         assert "filled in for three years" in description
 
     def test_sst_all_cells_filled_french(self):
@@ -274,10 +274,10 @@ class TestCheckSSTThreeYearsFilled:
             for col in ["E", "F", "G"]:
                 sheet[f"{col}{row}"] = 100.0
         
-        outcome, value, description = check_sst_three_years_filled(wb)
+        outcome, outcome_str, description = check_sst_three_years_filled(wb)
         
         assert outcome is True
-        assert value == 0.0
+        assert outcome_str == "genügend"
         assert "filled in for three years" in description
 
     def test_sst_some_cells_empty(self):
@@ -291,10 +291,10 @@ class TestCheckSSTThreeYearsFilled:
         sheet["F42"] = 100.0
         # Leave G42, E43, F43, G43, E45, F45, G45 empty
         
-        outcome, value, description = check_sst_three_years_filled(wb)
+        outcome, outcome_str, description = check_sst_three_years_filled(wb)
         
         assert outcome is False
-        assert value == 7.0  # 7 empty cells out of 9
+        assert outcome_str == "zu prüfen"
         assert "not filled in for three years" in description
 
     def test_sst_all_cells_empty(self):
@@ -303,20 +303,20 @@ class TestCheckSSTThreeYearsFilled:
         wb.remove(wb.active)
         wb.create_sheet("Ergebnisse_AVO-FINMA")
         
-        outcome, value, description = check_sst_three_years_filled(wb)
+        outcome, outcome_str, description = check_sst_three_years_filled(wb)
         
         assert outcome is False
-        assert value == 9.0  # All 9 cells empty
+        assert outcome_str == "zu prüfen"
         assert "not filled in for three years" in description
 
     def test_sst_sheet_not_found(self):
         """Test SST check fails when sheet is not found."""
         wb = Workbook()
         
-        outcome, value, description = check_sst_three_years_filled(wb)
+        outcome, outcome_str, description = check_sst_three_years_filled(wb)
         
         assert outcome is False
-        assert value is None
+        assert outcome_str == "zu prüfen"
         assert "not found" in description
 
     def test_sst_empty_strings_treated_as_empty(self):
@@ -330,10 +330,10 @@ class TestCheckSSTThreeYearsFilled:
             for col in ["E", "F", "G"]:
                 sheet[f"{col}{row}"] = ""
         
-        outcome, value, description = check_sst_three_years_filled(wb)
+        outcome, outcome_str, description = check_sst_three_years_filled(wb)
         
         assert outcome is False
-        assert value == 9.0
+        assert outcome_str == "zu prüfen"
         assert "not filled in for three years" in description
 
     def test_sst_whitespace_strings_treated_as_empty(self):
@@ -347,10 +347,10 @@ class TestCheckSSTThreeYearsFilled:
             for col in ["E", "F", "G"]:
                 sheet[f"{col}{row}"] = "   "
         
-        outcome, value, description = check_sst_three_years_filled(wb)
+        outcome, outcome_str, description = check_sst_three_years_filled(wb)
         
         assert outcome is False
-        assert value == 9.0
+        assert outcome_str == "zu prüfen"
         assert "not filled in for three years" in description
 
 
@@ -359,11 +359,12 @@ class TestRunCheck:
 
     def test_run_check_success(self, basic_workbook):
         """Test successful check execution."""
-        outcome, value, description = run_check(
+        outcome, outcome_str, description = run_check(
             "test_check", check_has_sheets, basic_workbook
         )
 
         assert isinstance(outcome, bool)
+        assert isinstance(outcome_str, str)
         assert isinstance(description, str)
 
     def test_run_check_with_error(self, basic_workbook):
@@ -372,12 +373,12 @@ class TestRunCheck:
         def failing_check(wb):
             raise ValueError("Test error")
 
-        outcome, value, description = run_check(
+        outcome, outcome_str, description = run_check(
             "failing_check", failing_check, basic_workbook
         )
 
         assert outcome is False
-        assert value is None
+        assert outcome_str == "zu prüfen"
         assert "error" in description.lower()
 
     def test_run_check_all_registered(self, basic_workbook):
@@ -385,10 +386,10 @@ class TestRunCheck:
         checks = get_all_checks()
 
         for check_name, check_function in checks:
-            outcome, value, description = run_check(
+            outcome, outcome_str, description = run_check(
                 check_name, check_function, basic_workbook
             )
 
             assert isinstance(outcome, bool)
             assert isinstance(description, str)
-            assert (value is None) or isinstance(value, float)
+            assert isinstance(outcome_str, str)
