@@ -68,18 +68,15 @@ class ORSAPipeline:
         
         This method:
         1. Validates input documents exist
-        2. Uses FinmaID from database or extracts institute_id from filenames as fallback
+        2. Uses FinmaID from database as institute_id
         3. Processes each document through quality checks
         4. Handles caching based on file hashes
         5. Stores results in the database
         6. Returns processing statistics
         
         Args:
-            documents: List of tuples in either format:
-                - (document_name, file_path, geschaeft_nr, finma_id, berichtsjahr) - preferred
-                - (document_name, file_path, geschaeft_nr, finma_id) - legacy
-                - (document_name, file_path, geschaeft_nr) - legacy, extracts from filename
-                where geschaeft_nr, finma_id, and berichtsjahr are optional
+            documents: List of 5-tuples with format:
+                (document_name, file_path, geschaeft_nr, finma_id, berichtsjahr)
         
         Returns:
             Dictionary containing:
@@ -106,17 +103,7 @@ class ORSAPipeline:
         
         logger.info(f"Starting pipeline processing for {len(documents)} documents")
         
-        for doc_tuple in documents:
-            # Handle 3-tuple, 4-tuple, and 5-tuple formats
-            if len(doc_tuple) == 5:
-                doc_name, file_path, geschaeft_nr, finma_id, berichtsjahr = doc_tuple
-            elif len(doc_tuple) == 4:
-                doc_name, file_path, geschaeft_nr, finma_id = doc_tuple
-                berichtsjahr = None
-            else:
-                doc_name, file_path, geschaeft_nr = doc_tuple
-                finma_id = None
-                berichtsjahr = None
+        for doc_name, file_path, geschaeft_nr, finma_id, berichtsjahr in documents:
             try:
                 # Validate file exists
                 if not file_path.exists():
@@ -124,14 +111,8 @@ class ORSAPipeline:
                     self.processing_stats["files_failed"] += 1
                     continue
                 
-                # Use provided finma_id or extract institute_id from filename as fallback
-                if finma_id is None:
-                    institute_id = self.processor._extract_institute_id(doc_name)
-                    logger.debug(f"Extracted institute_id from filename: {institute_id}")
-                else:
-                    institute_id = finma_id
-                    logger.debug(f"Using provided FinmaID as institute_id: {institute_id}")
-                
+                # Use FinmaID as institute_id
+                institute_id = finma_id
                 institutes_seen.add(institute_id)
                 
                 logger.info(

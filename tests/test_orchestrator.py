@@ -43,10 +43,10 @@ class MockDatabaseManager:
 class MockORSADocumentSourcer:
     """Mock ORSADocumentSourcer for testing."""
     
-    def __init__(self, documents: List[Tuple[str, Path, str]]):
+    def __init__(self, documents: List[Tuple[str, Path, str, str, int]]):
         self.documents = documents
     
-    def load(self) -> List[Tuple[str, Path, str]]:
+    def load(self) -> List[Tuple[str, Path, str, str, int]]:
         return self.documents
 
 
@@ -110,7 +110,7 @@ class TestORSAPipeline:
     
     def test_process_single_document(self, pipeline, sample_excel_file):
         """Test processing a single document."""
-        documents = [("INST001_report.xlsx", sample_excel_file, None)]
+        documents = [("INST001_report.xlsx", sample_excel_file, "GNR001", "INST001", 2026)]
         summary = pipeline.process_documents(documents)
         
         assert summary["files_processed"] == 1
@@ -130,8 +130,8 @@ class TestORSAPipeline:
     ):
         """Test processing multiple documents."""
         documents = [
-            ("INST001_report.xlsx", sample_excel_file, None),
-            ("INST002_report.xlsx", sample_excel_file2, None),
+            ("INST001_report.xlsx", sample_excel_file, "GNR001", "INST001", 2026),
+            ("INST002_report.xlsx", sample_excel_file2, "GNR002", "INST002", 2026),
         ]
         summary = pipeline.process_documents(documents)
         
@@ -145,7 +145,7 @@ class TestORSAPipeline:
         """Test that duplicate documents are skipped."""
         # Create new pipeline for this test
         pipeline = ORSAPipeline(db_manager, force_reprocess=False)
-        documents = [("INST001_report.xlsx", sample_excel_file, None)]
+        documents = [("INST001_report.xlsx", sample_excel_file, "GNR001", "INST001", 2026)]
         
         # First processing
         summary1 = pipeline.process_documents(documents)
@@ -169,7 +169,7 @@ class TestORSAPipeline:
         """Test that force reprocess overrides caching."""
         # First pipeline without force
         pipeline1 = ORSAPipeline(db_manager, force_reprocess=False)
-        documents = [("INST001_report.xlsx", sample_excel_file, None)]
+        documents = [("INST001_report.xlsx", sample_excel_file, "GNR001", "INST001", 2026)]
         
         # First processing
         summary1 = pipeline1.process_documents(documents)
@@ -189,7 +189,7 @@ class TestORSAPipeline:
     def test_process_nonexistent_file(self, pipeline, tmp_path):
         """Test handling of non-existent file."""
         nonexistent = tmp_path / "nonexistent.xlsx"
-        documents = [("INST001_nonexistent.xlsx", nonexistent, None)]
+        documents = [("INST001_nonexistent.xlsx", nonexistent, "GNR001", "INST001", 2026)]
         
         summary = pipeline.process_documents(documents)
         
@@ -198,7 +198,7 @@ class TestORSAPipeline:
     
     def test_process_from_sourcer(self, pipeline, sample_excel_file):
         """Test processing documents from a sourcer."""
-        documents = [("INST001_report.xlsx", sample_excel_file, None)]
+        documents = [("INST001_report.xlsx", sample_excel_file, "GNR001", "INST001", 2026)]
         sourcer = MockORSADocumentSourcer(documents)
         
         summary = pipeline.process_from_sourcer(sourcer)
@@ -208,7 +208,7 @@ class TestORSAPipeline:
     
     def test_generate_summary(self, pipeline, sample_excel_file):
         """Test generating pipeline summary."""
-        documents = [("INST001_report.xlsx", sample_excel_file, None)]
+        documents = [("INST001_report.xlsx", sample_excel_file, "GNR001", "INST001", 2026)]
         pipeline.process_documents(documents)
         
         summary = pipeline.generate_summary()
@@ -231,8 +231,8 @@ class TestORSAPipeline:
         pipeline.close()
     
     def test_institute_id_extraction(self, pipeline, tmp_path):
-        """Test extraction of institute IDs from filenames."""
-        # Test different filename formats
+        """Test that institute IDs from FinmaID are used correctly."""
+        # Test different filename formats with explicit FinmaID
         test_cases = [
             ("INST001_report.xlsx", "INST001"),
             ("INST002-report.xlsx", "INST002"),
@@ -244,7 +244,7 @@ class TestORSAPipeline:
             wb = Workbook()
             wb.save(file_path)
             
-            documents = [(filename, file_path, None)]
+            documents = [(filename, file_path, "GNR001", expected_id, 2026)]
             summary = pipeline.process_documents(documents)
             
             assert expected_id in summary["institutes"]
