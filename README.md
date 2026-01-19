@@ -35,7 +35,6 @@ dataquality/
   src/
     orsa_analysis/
       __init__.py
-      cli.py              # Command-line interface  
       core/               # Core processing logic
         __init__.py
         processor.py      # Document processor with versioning
@@ -72,9 +71,6 @@ dataquality/
 ```bash
 # Install in editable mode for development
 pip install -e .
-
-# Or install from repository
-pip install git+https://github.com/meierpd/dataquality.git
 ```
 
 ## Quick Start
