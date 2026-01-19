@@ -64,14 +64,13 @@ class ReportGenerator:
         
         logger.info(f"Found {len(check_results)} check results for {institute_id}")
         
-        # Get metadata for file naming
-        metadata = self.db_manager.get_institute_metadata(institute_id)
-        if not metadata:
-            logger.error(f"Could not retrieve metadata for {institute_id}")
+        # Validate source file path
+        if not source_file_path or not source_file_path.exists():
+            logger.error(f"Source file required and must exist: {source_file_path}")
             return None
         
         # Determine output file path
-        output_path = self._get_output_path(institute_id, metadata)
+        output_path = self._get_output_path(institute_id, source_file_path)
         
         # Check if file already exists
         if output_path.exists() and not force_overwrite:
@@ -79,12 +78,7 @@ class ReportGenerator:
             logger.info(f"Skipping generation (use force_overwrite=True to regenerate)")
             return None
         
-        # Validate source file path
-        if not source_file_path or not source_file_path.exists():
-            logger.error(f"Source file required and must exist: {source_file_path}")
-            return None
-        
-        # Create output workbook (source file as base, template sheets prepended)
+        # Create standalone output workbook from template
         try:
             self.template_manager.create_output_workbook(source_file_path)
         except Exception as e:
@@ -123,8 +117,7 @@ class ReportGenerator:
         logger.info(f"Generating reports for {len(institutes)} institutes")
         
         generated_reports = []
-        skipped_count = 0
-        error_count = 0
+        failed_count = 0
         
         for institute_id in institutes:
             logger.info(f"Processing {institute_id}...")
@@ -143,15 +136,12 @@ class ReportGenerator:
             
             if report_path:
                 generated_reports.append(report_path)
-            elif self._report_exists(institute_id):
-                skipped_count += 1
             else:
-                error_count += 1
+                failed_count += 1
         
         logger.info(f"Report generation complete:")
         logger.info(f"  Generated: {len(generated_reports)}")
-        logger.info(f"  Skipped (already exists): {skipped_count}")
-        logger.info(f"  Errors: {error_count}")
+        logger.info(f"  Failed/Skipped: {failed_count}")
         
         return generated_reports
     
@@ -278,40 +268,20 @@ class ReportGenerator:
             logger.error(f"Failed to apply institut metadata: {e}")
             return False
     
-    def _get_output_path(self, institute_id: str, metadata: Dict) -> Path:
+    def _get_output_path(self, institute_id: str, source_file_path: Path) -> Path:
         """Determine output file path for a report.
         
         Args:
             institute_id: Institute identifier
-            metadata: Institute metadata dictionary
+            source_file_path: Path to the source ORSA file
             
         Returns:
-            Path for output file
+            Path for output file with format: Auswertung_{institute_id}_{source_file_name}.xlsx
         """
-        # Extract version and other metadata
-        version = metadata.get('version', 1)
+        # Extract source file name (without path)
+        source_file_name = source_file_path.name
         
-        # Build filename: {institute_id}_ORSA_Report[_v{version}].xlsx
-        # Only include version suffix for v2+, omit for v1
-        if version == 1:
-            filename = f"{institute_id}_ORSA_Report.xlsx"
-        else:
-            filename = f"{institute_id}_ORSA_Report_v{version}.xlsx"
+        # Build filename: Auswertung_{institute_id}_{source_file_name}
+        filename = f"Auswertung_{institute_id}_{source_file_name}"
         
         return self.output_dir / filename
-    
-    def _report_exists(self, institute_id: str) -> bool:
-        """Check if a report already exists for an institute.
-        
-        Args:
-            institute_id: Institute identifier
-            
-        Returns:
-            True if report exists, False otherwise
-        """
-        metadata = self.db_manager.get_institute_metadata(institute_id)
-        if not metadata:
-            return False
-        
-        output_path = self._get_output_path(institute_id, metadata)
-        return output_path.exists()

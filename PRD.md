@@ -72,15 +72,19 @@ Denormalized table **orsa_analysis_data** with columns:
 
 ### 5.2 Excel per Institute
 
-Generated based on fixed template. Columns:
+Standalone report files generated from templates containing check results:
 
-* Description
-* Result (bool)
-* Value (numeric)
-* Assessment (free text)
-* Resolved (yes/no)
-  Include metadata fields inside the file.
-  Checks listed in fixed order.
+* Generated as separate files: `Auswertung_{institute_id}_{source_file_name}.xlsx`
+* Contains only template sheets (source file content is NOT included)
+* Columns from template:
+  * Description
+  * Result (bool)
+  * Value (numeric)
+  * Assessment (free text)
+  * Resolved (yes/no)
+* Include metadata fields inside the file (FinmaID, FinmaObjektName, MitarbeiterName)
+* Checks listed in fixed order
+* Source ORSA files remain separate and unchanged
 
 ## 6. Integration with Power BI
 
