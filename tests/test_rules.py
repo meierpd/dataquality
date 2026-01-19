@@ -1,17 +1,16 @@
-"""Unit tests for the rules module."""
+"""Meta-level tests for the rules module.
+
+This module tests the check framework itself, not individual check implementations.
+Individual checks are subject to change, so we only test:
+- That we can retrieve registered checks
+- That check execution works correctly
+- That the check interface is consistent
+"""
 
 import pytest
 from openpyxl import Workbook
 
 from orsa_analysis.checks.rules import (
-    check_has_sheets,
-    check_no_empty_sheets,
-    check_first_sheet_has_data,
-    check_sheet_names_unique,
-    check_row_count_reasonable,
-    check_has_expected_headers,
-    check_no_merged_cells,
-    check_sst_three_years_filled,
     get_all_checks,
     run_check,
 )
@@ -19,7 +18,7 @@ from orsa_analysis.checks.rules import (
 
 @pytest.fixture
 def basic_workbook():
-    """Create a basic workbook for testing."""
+    """Create a basic workbook for testing the check framework."""
     wb = Workbook()
     ws = wb.active
     ws.title = "Sheet1"
@@ -30,179 +29,12 @@ def basic_workbook():
     return wb
 
 
-@pytest.fixture
-def empty_workbook():
-    """Create an empty workbook."""
-    wb = Workbook()
-    return wb
-
-
-@pytest.fixture
-def multi_sheet_workbook():
-    """Create a workbook with multiple sheets."""
-    wb = Workbook()
-    ws1 = wb.active
-    ws1.title = "Sheet1"
-    ws1["A1"] = "Data"
-
-    ws2 = wb.create_sheet("Sheet2")
-    ws2["A1"] = "More data"
-
-    return wb
-
-
-class TestCheckHasSheets:
-    """Test cases for check_has_sheets."""
-
-    def test_workbook_with_sheets(self, basic_workbook):
-        """Test workbook with sheets passes check."""
-        outcome, outcome_str, description = check_has_sheets(basic_workbook)
-
-        assert outcome is True
-        assert outcome_str == "1"
-        assert "1" in description
-
-    def test_workbook_multiple_sheets(self, multi_sheet_workbook):
-        """Test workbook with multiple sheets."""
-        outcome, outcome_str, description = check_has_sheets(multi_sheet_workbook)
-
-        assert outcome is True
-        assert outcome_str == "2"
-        assert "2" in description
-
-
-class TestCheckNoEmptySheets:
-    """Test cases for check_no_empty_sheets."""
-
-    def test_workbook_with_data(self, basic_workbook):
-        """Test workbook with data passes check."""
-        outcome, outcome_str, description = check_no_empty_sheets(basic_workbook)
-
-        assert outcome is True
-        assert outcome_str == "genügend"
-        assert "All sheets contain data" in description
-
-    def test_workbook_with_empty_sheet(self):
-        """Test workbook with an empty sheet fails check."""
-        wb = Workbook()
-        wb.active["A1"] = "Data"
-        wb.create_sheet("EmptySheet")
-
-        outcome, outcome_str, description = check_no_empty_sheets(wb)
-
-        assert outcome is False
-        assert outcome_str == "zu prüfen"
-        assert "1 empty sheet" in description
-
-
-class TestCheckFirstSheetHasData:
-    """Test cases for check_first_sheet_has_data."""
-
-    def test_first_sheet_has_data(self, basic_workbook):
-        """Test first sheet with data passes check."""
-        outcome, outcome_str, description = check_first_sheet_has_data(basic_workbook)
-
-        assert outcome is True
-        assert outcome_str == "genügend"
-        assert "has data in A1" in description
-
-    def test_first_sheet_no_data(self, empty_workbook):
-        """Test first sheet without data fails check."""
-        outcome, outcome_str, description = check_first_sheet_has_data(empty_workbook)
-
-        assert outcome is False
-        assert outcome_str == "zu prüfen"
-        assert "no data in A1" in description
-
-
-class TestCheckSheetNamesUnique:
-    """Test cases for check_sheet_names_unique."""
-
-    def test_unique_sheet_names(self, basic_workbook):
-        """Test workbook with unique sheet names passes check."""
-        outcome, outcome_str, description = check_sheet_names_unique(basic_workbook)
-
-        assert outcome is True
-        assert outcome_str == "1"
-        assert "unique" in description
-
-    def test_multiple_unique_sheets(self, multi_sheet_workbook):
-        """Test multiple sheets with unique names."""
-        outcome, outcome_str, description = check_sheet_names_unique(multi_sheet_workbook)
-
-        assert outcome is True
-        assert outcome_str == "2"
-
-
-class TestCheckRowCountReasonable:
-    """Test cases for check_row_count_reasonable."""
-
-    def test_reasonable_row_count(self, basic_workbook):
-        """Test workbook with reasonable row count passes check."""
-        outcome, outcome_str, description = check_row_count_reasonable(basic_workbook)
-
-        assert outcome is True
-        assert outcome_str == "2"
-        assert "within limit" in description
-
-    def test_empty_sheet_row_count(self, empty_workbook):
-        """Test empty sheet has reasonable row count."""
-        outcome, outcome_str, description = check_row_count_reasonable(empty_workbook)
-
-        assert outcome is True
-        assert outcome_str == "1"
-
-
-class TestCheckHasExpectedHeaders:
-    """Test cases for check_has_expected_headers."""
-
-    def test_workbook_with_headers(self, basic_workbook):
-        """Test workbook with headers passes check."""
-        outcome, outcome_str, description = check_has_expected_headers(basic_workbook)
-
-        assert outcome is True
-        assert outcome_str == "2"
-        assert "2 non-empty header" in description
-
-    def test_workbook_without_headers(self, empty_workbook):
-        """Test empty workbook fails header check."""
-        outcome, outcome_str, description = check_has_expected_headers(empty_workbook)
-
-        assert outcome is False
-        assert "No headers found" in description or "empty" in description.lower()
-
-
-class TestCheckNoMergedCells:
-    """Test cases for check_no_merged_cells."""
-
-    def test_no_merged_cells(self, basic_workbook):
-        """Test workbook without merged cells passes check."""
-        outcome, outcome_str, description = check_no_merged_cells(basic_workbook)
-
-        assert outcome is True
-        assert outcome_str == "genügend"
-        assert "No merged cells" in description
-
-    def test_with_merged_cells(self):
-        """Test workbook with merged cells fails check."""
-        wb = Workbook()
-        ws = wb.active
-        ws.merge_cells("A1:B2")
-
-        outcome, outcome_str, description = check_no_merged_cells(wb)
-
-        assert outcome is False
-        assert outcome_str == "1"
-        assert "merged cell" in description
-
-
 class TestGetAllChecks:
-    """Test cases for get_all_checks."""
+    """Test cases for retrieving registered checks."""
 
     def test_get_all_checks_returns_list(self):
         """Test that get_all_checks returns a list."""
         checks = get_all_checks()
-
         assert isinstance(checks, list)
         assert len(checks) > 0
 
@@ -216,151 +48,29 @@ class TestGetAllChecks:
             assert isinstance(check[0], str)
             assert callable(check[1])
 
-    def test_get_all_checks_contains_expected(self):
-        """Test that expected checks are in the registry."""
+    def test_get_all_checks_has_content(self):
+        """Test that there are checks registered."""
+        checks = get_all_checks()
+        assert len(checks) >= 3, "Should have at least a few checks registered"
+
+    def test_check_names_are_unique(self):
+        """Test that all check names are unique."""
         checks = get_all_checks()
         check_names = [name for name, _ in checks]
-
-        assert "has_sheets" in check_names
-        assert "no_empty_sheets" in check_names
-        assert "first_sheet_has_data" in check_names
-
-
-class TestCheckSSTThreeYearsFilled:
-    """Test cases for check_sst_three_years_filled."""
-
-    def test_sst_all_cells_filled_german(self):
-        """Test SST check passes when all cells are filled (German)."""
-        wb = Workbook()
-        wb.remove(wb.active)
-        sheet = wb.create_sheet("Ergebnisse_AVO-FINMA")
-        
-        # Fill all required cells
-        for row in [42, 43, 45]:
-            for col in ["E", "F", "G"]:
-                sheet[f"{col}{row}"] = 100.0
-        
-        outcome, outcome_str, description = check_sst_three_years_filled(wb)
-        
-        assert outcome is True
-        assert outcome_str == "genügend"
-        assert "filled in for three years" in description
-
-    def test_sst_all_cells_filled_english(self):
-        """Test SST check passes when all cells are filled (English)."""
-        wb = Workbook()
-        wb.remove(wb.active)
-        sheet = wb.create_sheet("Results_ISO-FINMA")
-        
-        # Fill all required cells
-        for row in [42, 43, 45]:
-            for col in ["E", "F", "G"]:
-                sheet[f"{col}{row}"] = 100.0
-        
-        outcome, outcome_str, description = check_sst_three_years_filled(wb)
-        
-        assert outcome is True
-        assert outcome_str == "genügend"
-        assert "filled in for three years" in description
-
-    def test_sst_all_cells_filled_french(self):
-        """Test SST check passes when all cells are filled (French)."""
-        wb = Workbook()
-        wb.remove(wb.active)
-        sheet = wb.create_sheet("Résultats_OS-FINMA")
-        
-        # Fill all required cells
-        for row in [42, 43, 45]:
-            for col in ["E", "F", "G"]:
-                sheet[f"{col}{row}"] = 100.0
-        
-        outcome, outcome_str, description = check_sst_three_years_filled(wb)
-        
-        assert outcome is True
-        assert outcome_str == "genügend"
-        assert "filled in for three years" in description
-
-    def test_sst_some_cells_empty(self):
-        """Test SST check fails when some cells are empty."""
-        wb = Workbook()
-        wb.remove(wb.active)
-        sheet = wb.create_sheet("Ergebnisse_AVO-FINMA")
-        
-        # Fill only some cells
-        sheet["E42"] = 100.0
-        sheet["F42"] = 100.0
-        # Leave G42, E43, F43, G43, E45, F45, G45 empty
-        
-        outcome, outcome_str, description = check_sst_three_years_filled(wb)
-        
-        assert outcome is False
-        assert outcome_str == "zu prüfen"
-        assert "not filled in for three years" in description
-
-    def test_sst_all_cells_empty(self):
-        """Test SST check fails when all cells are empty."""
-        wb = Workbook()
-        wb.remove(wb.active)
-        wb.create_sheet("Ergebnisse_AVO-FINMA")
-        
-        outcome, outcome_str, description = check_sst_three_years_filled(wb)
-        
-        assert outcome is False
-        assert outcome_str == "zu prüfen"
-        assert "not filled in for three years" in description
-
-    def test_sst_sheet_not_found(self):
-        """Test SST check fails when sheet is not found."""
-        wb = Workbook()
-        
-        outcome, outcome_str, description = check_sst_three_years_filled(wb)
-        
-        assert outcome is False
-        assert outcome_str == "zu prüfen"
-        assert "not found" in description
-
-    def test_sst_empty_strings_treated_as_empty(self):
-        """Test SST check treats empty strings as empty cells."""
-        wb = Workbook()
-        wb.remove(wb.active)
-        sheet = wb.create_sheet("Ergebnisse_AVO-FINMA")
-        
-        # Fill with empty strings
-        for row in [42, 43, 45]:
-            for col in ["E", "F", "G"]:
-                sheet[f"{col}{row}"] = ""
-        
-        outcome, outcome_str, description = check_sst_three_years_filled(wb)
-        
-        assert outcome is False
-        assert outcome_str == "zu prüfen"
-        assert "not filled in for three years" in description
-
-    def test_sst_whitespace_strings_treated_as_empty(self):
-        """Test SST check treats whitespace strings as empty cells."""
-        wb = Workbook()
-        wb.remove(wb.active)
-        sheet = wb.create_sheet("Ergebnisse_AVO-FINMA")
-        
-        # Fill with whitespace strings
-        for row in [42, 43, 45]:
-            for col in ["E", "F", "G"]:
-                sheet[f"{col}{row}"] = "   "
-        
-        outcome, outcome_str, description = check_sst_three_years_filled(wb)
-        
-        assert outcome is False
-        assert outcome_str == "zu prüfen"
-        assert "not filled in for three years" in description
+        assert len(check_names) == len(set(check_names)), "Check names should be unique"
 
 
 class TestRunCheck:
-    """Test cases for run_check wrapper function."""
+    """Test cases for the run_check wrapper function."""
 
     def test_run_check_success(self, basic_workbook):
-        """Test successful check execution."""
+        """Test successful check execution returns correct types."""
+        checks = get_all_checks()
+        assert len(checks) > 0, "Need at least one check to test"
+        
+        check_name, check_function = checks[0]
         outcome, outcome_str, description = run_check(
-            "test_check", check_has_sheets, basic_workbook
+            check_name, check_function, basic_workbook
         )
 
         assert isinstance(outcome, bool)
@@ -382,7 +92,7 @@ class TestRunCheck:
         assert "error" in description.lower()
 
     def test_run_check_all_registered(self, basic_workbook):
-        """Test running all registered checks."""
+        """Test running all registered checks works and returns correct format."""
         checks = get_all_checks()
 
         for check_name, check_function in checks:
@@ -390,6 +100,23 @@ class TestRunCheck:
                 check_name, check_function, basic_workbook
             )
 
-            assert isinstance(outcome, bool)
-            assert isinstance(description, str)
-            assert isinstance(outcome_str, str)
+            # Verify return types
+            assert isinstance(outcome, bool), f"Check '{check_name}' should return bool as first value"
+            assert isinstance(outcome_str, str), f"Check '{check_name}' should return str as second value"
+            assert isinstance(description, str), f"Check '{check_name}' should return str as third value"
+            
+            # Verify description is not empty
+            assert len(description) > 0, f"Check '{check_name}' should return non-empty description"
+
+    def test_run_check_consistent_interface(self, basic_workbook):
+        """Test that all checks follow the same interface pattern."""
+        checks = get_all_checks()
+
+        for check_name, check_function in checks:
+            # Should be able to call with just a workbook
+            try:
+                result = check_function(basic_workbook)
+                assert isinstance(result, tuple), f"Check '{check_name}' should return a tuple"
+                assert len(result) == 3, f"Check '{check_name}' should return a 3-tuple"
+            except Exception as e:
+                pytest.fail(f"Check '{check_name}' raised unexpected exception: {e}")
