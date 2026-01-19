@@ -298,7 +298,7 @@ The institut metadata is sourced from the `institut_metadata.sql` query and merg
 
 ```bash
 # Option 1: Process and generate reports in one command
-orsa-qc --berichtsjahr 2026 --generate-reports --verbose
+orsa-qc --berichtsjahr 2026 --verbose
 
 # Option 2: Generate reports separately from existing database results
 orsa-qc --reports-only --verbose
