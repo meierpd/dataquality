@@ -14,7 +14,7 @@ This project provides an automated way to validate Excel files submitted by inst
 * **Database Output**: Denormalized qc_results table ready for MSSQL storage
 * **Force Reprocess Mode**: Option to reprocess files regardless of cache status
 * **ORSADocumentSourcer Integration**: Direct integration with document sourcing system
-* **Comprehensive Testing**: Full unit test coverage for all modules (175 tests)
+* **Comprehensive Testing**: Full unit test coverage for all modules (150 tests)
 
 ## Architecture
 
@@ -597,6 +597,19 @@ The report contains only template sheets (source file content is not included) w
 * Assessment (free text)
 * Resolved (yes/no)
 
+### Automatic Numeric Conversion
+
+The report generator automatically converts string representations of numbers to actual numeric types when writing check results to Excel cells. This ensures that Excel formulas work correctly with numeric values.
+
+**Conversion behavior:**
+* `"42"` → `42` (integer)
+* `"42.5"` → `42.5` (float)
+* `"-15"` → `-15` (negative integer)
+* `"-15.75"` → `-15.75` (negative float)
+* `"genügend"` → `"genügend"` (non-numeric strings remain unchanged)
+
+This feature prevents issues where Excel formulas fail because numeric values are stored as text strings.
+
 The source ORSA files remain separate and unchanged.
 
 ## Power BI
@@ -605,7 +618,7 @@ Power BI connects directly to `qc_results`, which already contains all metadata 
 
 ## Testing
 
-Run the comprehensive test suite (103 tests):
+Run the comprehensive test suite (150 tests):
 
 ```bash
 # Run all tests
