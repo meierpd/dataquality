@@ -253,8 +253,8 @@ class TestORSADocumentSourcerDownload:
         results = sourcer.download_documents(df, target_dir=tmp_path)
 
         assert len(results) == 3
-        assert all(name in ["doc1.xlsx", "doc2.xlsx", "doc3.xlsx"] for name, _, _, _ in results)
-        assert all((tmp_path / name).exists() for name, _, _, _ in results)
+        assert all(name in ["doc1.xlsx", "doc2.xlsx", "doc3.xlsx"] for name, _, _, _, _ in results)
+        assert all((tmp_path / name).exists() for name, _, _, _, _ in results)
 
     @patch("requests.get")
     def test_download_documents_with_failure(self, mock_get, tmp_path, monkeypatch):
@@ -287,7 +287,7 @@ class TestORSADocumentSourcerDownload:
         results = sourcer.download_documents(df, target_dir=tmp_path)
 
         assert len(results) == 2  # Only successful downloads
-        assert all(name in ["doc1.xlsx", "doc3.xlsx"] for name, _, _, _ in results)
+        assert all(name in ["doc1.xlsx", "doc3.xlsx"] for name, _, _, _, _ in results)
 
     @patch("requests.get")
     def test_download_documents_default_directory(self, mock_get, tmp_path, monkeypatch):

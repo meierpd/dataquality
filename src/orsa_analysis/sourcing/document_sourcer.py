@@ -108,15 +108,15 @@ class ORSADocumentSourcer:
 
     def download_documents(
         self, document_df: pd.DataFrame, target_dir: Path = None
-    ) -> List[Tuple[str, Path, str, str]]:
+    ) -> List[Tuple[str, Path, str, str, int]]:
         """Download documents from SharePoint links.
         
         Args:
-            document_df: DataFrame with DokumentName, DokumentLink, GeschaeftNr, and FinmaID columns
+            document_df: DataFrame with DokumentName, DokumentLink, GeschaeftNr, FinmaID, and Berichtsjahr columns
             target_dir: Directory to save files (default: orsa_response_files/)
             
         Returns:
-            List of tuples (document_name, file_path, geschaeft_nr, finma_id)
+            List of tuples (document_name, file_path, geschaeft_nr, finma_id, berichtsjahr)
             
         Note:
             Requires DB_USER and DB_PASSWORD to be set in environment variables.
@@ -157,6 +157,15 @@ class ORSADocumentSourcer:
             
             geschaeft_nr = extract_scalar(row, "GeschaeftNr")
             finma_id = extract_scalar(row, "FinmaID")
+            berichtsjahr_value = extract_scalar(row, "Berichtsjahr")
+            
+            # Convert berichtsjahr to int if possible, otherwise use None
+            try:
+                berichtsjahr = int(berichtsjahr_value) if berichtsjahr_value is not None else None
+            except (ValueError, TypeError):
+                berichtsjahr = None
+                logger.warning(f"Could not convert berichtsjahr '{berichtsjahr_value}' to int for {name}")
+            
             out = target_dir / name
             
             try:
@@ -168,7 +177,7 @@ class ORSADocumentSourcer:
                 )
                 r.raise_for_status()
                 out.write_bytes(r.content)
-                results.append((name, out, geschaeft_nr, finma_id))
+                results.append((name, out, geschaeft_nr, finma_id, berichtsjahr))
                 logger.info(f"  ✓ Saved to: {out}")
             except Exception as e:
                 logger.error(f"  ✗ Failed to download {name}: {e}")
@@ -176,7 +185,7 @@ class ORSADocumentSourcer:
         logger.info(f"Successfully downloaded {len(results)}/{len(document_df)} documents")
         return results
 
-    def load(self, target_dir: Path = None) -> List[Tuple[str, Path, str, str]]:
+    def load(self, target_dir: Path = None) -> List[Tuple[str, Path, str, str, int]]:
         """Load all relevant ORSA documents.
         
         This is the main entry point that:
@@ -187,7 +196,7 @@ class ORSADocumentSourcer:
             target_dir: Directory to save files (default: orsa_response_files/)
             
         Returns:
-            List of tuples (document_name, file_path, geschaeft_nr, finma_id)
+            List of tuples (document_name, file_path, geschaeft_nr, finma_id, berichtsjahr)
         """
         logger.info("Starting ORSA document loading process")
         document_metadata_df = self.get_document_metadata()

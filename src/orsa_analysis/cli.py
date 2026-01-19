@@ -12,25 +12,6 @@ from orsa_analysis.reporting import ReportGenerator
 logger = logging.getLogger(__name__)
 
 
-def _extract_institute_id(file_name: str) -> str:
-    """Extract institute ID from file name.
-
-    This is a simple implementation that uses the first part of the filename
-    before any underscore or dash. This logic matches the processor's implementation.
-
-    Args:
-        file_name: Name of the file
-
-    Returns:
-        Institute identifier
-    """
-    base_name = Path(file_name).stem
-    for separator in ["_", "-", " "]:
-        if separator in base_name:
-            return base_name.split(separator)[0]
-    return base_name
-
-
 def setup_logging(verbose: bool = False) -> None:
     """Configure logging for the application.
 
@@ -108,17 +89,9 @@ def process_from_sourcer(
             # Get source files from sourcer
             documents = sourcer.load()
             source_files = {}
-            for doc_tuple in documents:
-                # Handle both 3-tuple and 4-tuple formats
-                if len(doc_tuple) == 4:
-                    _, file_path, _, finma_id = doc_tuple
-                    # Use FinmaID from database as the institute_id
-                    institute_id = finma_id
-                else:
-                    document_name, file_path, _ = doc_tuple
-                    # Fallback: extract institute_id from document name
-                    institute_id = _extract_institute_id(document_name)
-                source_files[institute_id] = Path(file_path)
+            for document_name, file_path, geschaeft_nr, finma_id, berichtsjahr in documents:
+                # Use FinmaID from database as the institute_id
+                source_files[finma_id] = Path(file_path)
             
             # Initialize report generator
             report_gen = ReportGenerator(
@@ -180,17 +153,9 @@ def generate_reports_only(
         sourcer = ORSADocumentSourcer(cred_file=credentials_file, berichtsjahr=berichtsjahr)
         documents = sourcer.load()
         source_files = {}
-        for doc_tuple in documents:
-            # Handle both 3-tuple and 4-tuple formats
-            if len(doc_tuple) == 4:
-                _, file_path, _, finma_id = doc_tuple
-                # Use FinmaID from database as the institute_id
-                inst_id = finma_id
-            else:
-                document_name, file_path, _ = doc_tuple
-                # Fallback: extract institute_id from document name
-                inst_id = _extract_institute_id(document_name)
-            source_files[inst_id] = Path(file_path)
+        for document_name, file_path, geschaeft_nr, finma_id, berichtsjahr_val in documents:
+            # Use FinmaID from database as the institute_id
+            source_files[finma_id] = Path(file_path)
         
         logger.info(f"Found {len(source_files)} source files")
         

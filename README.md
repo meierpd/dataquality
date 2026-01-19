@@ -298,7 +298,7 @@ The institut metadata is sourced from the `institut_metadata.sql` query and merg
 
 ```bash
 # Option 1: Process and generate reports in one command
-orsa-qc --berichtsjahr 2026 --generate-reports --verbose
+orsa-qc --berichtsjahr 2026 --verbose
 
 # Option 2: Generate reports separately from existing database results
 orsa-qc --reports-only --verbose
@@ -526,20 +526,23 @@ Columns:
 * check_description (NVARCHAR(MAX))
 * outcome_bool (BIT)
 * outcome_numeric (FLOAT, NULL)
+* berichtsjahr (INT, NULL) - Reporting year for the document
+* geschaeft_nr (NVARCHAR(50), NULL) - Business number (unique per institute/year)
 * processed_timestamp (DATETIME2, DEFAULT GETDATE())
 
 Indexes:
 * Clustered index on id
 * Non-clustered index on institute_id
 * Non-clustered index on file_hash
+* Non-clustered index on berichtsjahr
 * Composite index on (institute_id, version)
 
 ### Database Views
 
 Two convenience views are provided:
 
-1. **vw_orsa_analysis_latest**: Shows only the latest version per institute
-2. **vw_orsa_analysis_summary**: Aggregates pass rates by institute and check
+1. **vw_orsa_analysis_latest**: Shows only the latest version per institute (includes berichtsjahr)
+2. **vw_orsa_analysis_summary**: Aggregates pass rates by institute and check (includes berichtsjahr)
 
 ### Institut Metadata Query
 
@@ -677,13 +680,20 @@ Multi-language sheet name mapping system:
 ## Integration Notes
 
 ### ORSADocumentSourcer Output Format
-The processor expects `List[Tuple[str, Path, str]]` from `sourcer.load()`:
+The processor expects `List[Tuple[str, Path, str, str, int]]` from `sourcer.load()`:
 ```python
 [
-    ("INST001_report.xlsx", Path("/path/to/file1.xlsx"), "GNR123"),
-    ("INST002_report.xlsx", Path("/path/to/file2.xlsx"), "GNR456"),
+    ("INST001_report.xlsx", Path("/path/to/file1.xlsx"), "GNR123", "10001", 2026),
+    ("INST002_report.xlsx", Path("/path/to/file2.xlsx"), "GNR456", "10002", 2026),
 ]
 ```
+
+The tuple format is: `(document_name, file_path, geschaeft_nr, finma_id, berichtsjahr)`
+- `document_name`: Name of the document file
+- `file_path`: Path to the downloaded file
+- `geschaeft_nr`: Business number (GeschaeftNr)
+- `finma_id`: Institute identifier (FinmaID)
+- `berichtsjahr`: Reporting year
 
 ### Using ORSADocumentSourcer with Berichtsjahr
 
