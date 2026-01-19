@@ -680,13 +680,20 @@ Multi-language sheet name mapping system:
 ## Integration Notes
 
 ### ORSADocumentSourcer Output Format
-The processor expects `List[Tuple[str, Path, str]]` from `sourcer.load()`:
+The processor expects `List[Tuple[str, Path, str, str, int]]` from `sourcer.load()`:
 ```python
 [
-    ("INST001_report.xlsx", Path("/path/to/file1.xlsx"), "GNR123"),
-    ("INST002_report.xlsx", Path("/path/to/file2.xlsx"), "GNR456"),
+    ("INST001_report.xlsx", Path("/path/to/file1.xlsx"), "GNR123", "10001", 2026),
+    ("INST002_report.xlsx", Path("/path/to/file2.xlsx"), "GNR456", "10002", 2026),
 ]
 ```
+
+The tuple format is: `(document_name, file_path, geschaeft_nr, finma_id, berichtsjahr)`
+- `document_name`: Name of the document file
+- `file_path`: Path to the downloaded file
+- `geschaeft_nr`: Business number (GeschaeftNr)
+- `finma_id`: Institute identifier (FinmaID)
+- `berichtsjahr`: Reporting year
 
 ### Using ORSADocumentSourcer with Berichtsjahr
 

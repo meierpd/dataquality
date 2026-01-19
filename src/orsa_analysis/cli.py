@@ -109,9 +109,13 @@ def process_from_sourcer(
             documents = sourcer.load()
             source_files = {}
             for doc_tuple in documents:
-                # Handle both 3-tuple and 4-tuple formats
-                if len(doc_tuple) == 4:
-                    _, file_path, _, finma_id = doc_tuple
+                # Handle 3-tuple, 4-tuple, and 5-tuple formats
+                if len(doc_tuple) == 5:
+                    document_name, file_path, _, finma_id, _ = doc_tuple
+                    # Use FinmaID from database as the institute_id
+                    institute_id = finma_id
+                elif len(doc_tuple) == 4:
+                    document_name, file_path, _, finma_id = doc_tuple
                     # Use FinmaID from database as the institute_id
                     institute_id = finma_id
                 else:
@@ -181,9 +185,13 @@ def generate_reports_only(
         documents = sourcer.load()
         source_files = {}
         for doc_tuple in documents:
-            # Handle both 3-tuple and 4-tuple formats
-            if len(doc_tuple) == 4:
-                _, file_path, _, finma_id = doc_tuple
+            # Handle 3-tuple, 4-tuple, and 5-tuple formats
+            if len(doc_tuple) == 5:
+                document_name, file_path, _, finma_id, _ = doc_tuple
+                # Use FinmaID from database as the institute_id
+                inst_id = finma_id
+            elif len(doc_tuple) == 4:
+                document_name, file_path, _, finma_id = doc_tuple
                 # Use FinmaID from database as the institute_id
                 inst_id = finma_id
             else:
