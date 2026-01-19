@@ -67,21 +67,21 @@ class TestOutputWorkbookCreation:
     """Test output workbook creation."""
     
     def test_create_output_workbook(self, temp_template_file, temp_source_file):
-        """Test creating output workbook from source file with template prepended."""
+        """Test creating standalone output workbook from template only."""
         manager = ExcelTemplateManager(temp_template_file)
         wb = manager.create_output_workbook(temp_source_file)
         
         assert isinstance(wb, Workbook)
-        # Template sheet should be first
+        # Should only contain template sheet
         assert "Auswertung" in wb.sheetnames
         assert wb.sheetnames[0] == "Auswertung"
         
-        # Source sheets should follow
-        assert "Data Sheet 1" in wb.sheetnames
-        assert "Data Sheet 2" in wb.sheetnames
+        # Source sheets should NOT be included
+        assert "Data Sheet 1" not in wb.sheetnames
+        assert "Data Sheet 2" not in wb.sheetnames
         
-        # Total should be template + source sheets
-        assert len(wb.sheetnames) == 3
+        # Total should be only template sheets
+        assert len(wb.sheetnames) == 1
     
     def test_create_output_workbook_nonexistent_source(self, temp_template_file, tmp_path):
         """Test creating output workbook with non-existent source file raises error."""
@@ -100,14 +100,14 @@ class TestOutputWorkbookCreation:
         assert wb["Auswertung"]["A1"].value == "Header"
         assert wb["Auswertung"]["C8"].value == "Original Value"
     
-    def test_create_output_preserves_source_content(self, temp_template_file, temp_source_file):
-        """Test that source content is preserved in output."""
+    def test_create_output_does_not_include_source_content(self, temp_template_file, temp_source_file):
+        """Test that source content is NOT included in output (standalone report)."""
         manager = ExcelTemplateManager(temp_template_file)
         wb = manager.create_output_workbook(temp_source_file)
         
-        # Check source content is preserved
-        assert wb["Data Sheet 1"]["A1"].value == "Data 1"
-        assert wb["Data Sheet 2"]["A1"].value == "Data 2"
+        # Check that source sheets are NOT present
+        assert "Data Sheet 1" not in wb.sheetnames
+        assert "Data Sheet 2" not in wb.sheetnames
 
 
 class TestCellOperations:
@@ -170,10 +170,10 @@ class TestWorkbookSaving:
         
         assert output_path.exists()
         
-        # Verify saved file is valid
+        # Verify saved file is valid and contains only template sheets
         wb = openpyxl.load_workbook(output_path)
         assert "Auswertung" in wb.sheetnames
-        assert "Data Sheet 1" in wb.sheetnames
+        assert "Data Sheet 1" not in wb.sheetnames
         wb.close()
     
     def test_save_workbook_creates_directory(self, temp_template_file, temp_source_file, tmp_path):

@@ -10,7 +10,7 @@ This project provides an automated way to validate Excel files submitted by inst
 * **Automatic Versioning**: Version assignment per institute based on file content changes
 * **Modular Check System**: Extensible Python-based quality checks with simple registration
 * **Multi-Language Support**: Automatic detection and handling of German, English, and French Excel sheet names
-* **Report Generation**: Automated Excel report creation combining check results with source documents
+* **Report Generation**: Automated standalone Excel report creation with check results from templates
 * **Database Output**: Denormalized qc_results table ready for MSSQL storage
 * **Force Reprocess Mode**: Option to reprocess files regardless of cache status
 * **ORSADocumentSourcer Integration**: Direct integration with document sourcing system
@@ -277,20 +277,19 @@ years accumulate, the GeschaeftsNr remains the unique identifier.
 
 ## Report Generation
 
-The reporting module generates Excel reports that combine check results from the database with template and source documents.
+The reporting module generates standalone Excel reports containing check results from templates. Reports are saved as separate files with the naming format: `Auswertung_{institute_id}_{source_file_name}.xlsx`
 
 ### Report Structure
 
-Generated reports contain:
-1. **Template Sheets First**: The "Auswertung" sheet and other template sheets appear first
+Generated reports are standalone files containing only template sheets with populated check results:
+1. **Template Sheets Only**: The "Auswertung" sheet and other template sheets (source file content is NOT included)
 2. **Institut Metadata**: Institute-specific metadata is automatically populated:
    - Cell C3: FinmaID (Institute identifier)
    - Cell C4: FinmaObjektName (Institute name)
    - Cell C5: MitarbeiterName (Employee name)
 3. **Check Results**: Check outcomes are written to specific cells (e.g., SST check → C8)
-4. **Source Sheets**: All sheets from the original ORSA document are appended
 
-The institut metadata is sourced from the `institut_metadata.sql` query and merged with the report data using FinmaID as the key.
+The institut metadata is sourced from the `institut_metadata.sql` query and merged with the report data using FinmaID as the key. The source ORSA file remains unchanged and separate from the generated report.
 
 ### Report Generation Workflow
 
@@ -592,12 +591,16 @@ A forced reprocessing mode skips the hash check.
 
 ## Excel Report
 
-For each institute, an Excel sheet is generated based on a template. Columns include:
+For each institute, a standalone Excel report file is generated based on a template with the naming format: `Auswertung_{institute_id}_{source_file_name}.xlsx`
+
+The report contains only template sheets (source file content is not included) with columns:
 
 * Description
 * Check result
 * Assessment (free text)
 * Resolved (yes/no)
+
+The source ORSA files remain separate and unchanged.
 
 ## Power BI
 

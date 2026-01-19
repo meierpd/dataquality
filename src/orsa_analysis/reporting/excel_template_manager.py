@@ -14,10 +14,10 @@ logger = logging.getLogger(__name__)
 class ExcelTemplateManager:
     """Manages Excel template operations for report generation.
     
-    This manager uses a simple approach:
-    1. Load the source ORSA file as the base workbook
-    2. Copy template sheets and insert them at the beginning
-    3. Keep all original source sheets intact
+    This manager creates standalone report files from templates:
+    1. Load the template file
+    2. Copy all template sheets to a new workbook
+    3. The source file is referenced but not included in the output
     """
 
     def __init__(self, template_path: Path):
@@ -37,18 +37,16 @@ class ExcelTemplateManager:
         logger.info(f"Template manager initialized with: {template_path}")
 
     def create_output_workbook(self, source_path: Path) -> Workbook:
-        """Create output workbook by loading source file and prepending template sheets.
+        """Create standalone output workbook from template.
 
-        This method:
-        1. Loads the source ORSA file as the base workbook
-        2. Copies template sheets and inserts them at the beginning
-        3. Keeps all original source sheets intact
+        This method creates a new workbook containing only the template sheets.
+        The source file path is validated but its content is not included in the output.
 
         Args:
-            source_path: Path to source ORSA Excel file
+            source_path: Path to source ORSA Excel file (for validation only)
 
         Returns:
-            Output workbook with template sheets first, then source sheets
+            Output workbook containing only template sheets
             
         Raises:
             FileNotFoundError: If source file doesn't exist
@@ -56,35 +54,26 @@ class ExcelTemplateManager:
         if not source_path.exists():
             raise FileNotFoundError(f"Source file not found: {source_path}")
 
-        # Load source file as base
-        self.output_wb = load_workbook(source_path)
-        logger.debug(f"Loaded source file with sheets: {self.output_wb.sheetnames}")
-
         # Load template file
         template_wb = load_workbook(self.template_path)
         logger.debug(f"Loaded template with sheets: {template_wb.sheetnames}")
 
-        # Copy template sheets and insert them at the beginning
+        # Create a new workbook for output
+        self.output_wb = Workbook()
+        
+        # Remove default sheet if it exists
+        if "Sheet" in self.output_wb.sheetnames:
+            self.output_wb.remove(self.output_wb["Sheet"])
+        
+        # Copy all template sheets to output workbook
         template_sheet_names = list(template_wb.sheetnames)
-        for i, sheet_name in enumerate(template_sheet_names):
-            # Handle potential name conflicts
-            target_name = sheet_name
-            if target_name in self.output_wb.sheetnames:
-                target_name = f"{sheet_name}_template"
-                logger.debug(
-                    f"Sheet name conflict: renaming template sheet {sheet_name} to {target_name}"
-                )
-            
+        for sheet_name in template_sheet_names:
             # Copy the template sheet
-            self._copy_sheet(template_wb[sheet_name], self.output_wb, target_name)
-            logger.debug(f"Copied template sheet: {target_name}")
-
-            # Move to position i (template sheets at beginning)
-            self.output_wb.move_sheet(target_name, offset=-(len(self.output_wb.sheetnames) - 1 - i))
+            self._copy_sheet(template_wb[sheet_name], self.output_wb, sheet_name)
+            logger.debug(f"Copied template sheet: {sheet_name}")
 
         logger.info(
-            f"Created output workbook with {len(self.output_wb.sheetnames)} sheets "
-            f"(template sheets first)"
+            f"Created standalone output workbook with {len(self.output_wb.sheetnames)} template sheet(s)"
         )
         return self.output_wb
 
