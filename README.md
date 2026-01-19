@@ -567,20 +567,6 @@ To create the database table and views:
 sqlcmd -S your_server -d GBI_REPORTING -i sql/create_table_orsa_analysis_data.sql
 ```
 
-### Database Migration
-
-If you have an existing `orsa_analysis_data` table without the `berichtsjahr` column, run the migration scripts:
-
-```bash
-# Add berichtsjahr column to existing table
-sqlcmd -S your_server -d GBI_REPORTING -i sql/add_berichtsjahr_column.sql
-
-# Update views to include berichtsjahr
-sqlcmd -S your_server -d GBI_REPORTING -i sql/update_views_for_berichtsjahr.sql
-```
-
-The berichtsjahr (reporting year) is now automatically captured from the document sourcing system and stored with each check result, making it easier to filter and analyze results by reporting period.
-
 ### Database Connection
 
 The system uses environment variables for database credentials:
