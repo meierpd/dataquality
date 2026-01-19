@@ -1,4 +1,21 @@
-"""Command-line interface for the data quality control tool."""
+"""Main entry point for the data quality control tool.
+
+This module can be run directly as:
+    python -m orsa_analysis
+
+Or via the installed command:
+    orsa-qc
+
+Quick Start:
+    To run with default settings:
+    
+        python -m orsa_analysis
+    
+    This will:
+    - Connect to the database using credentials from credentials.env
+    - Process ORSA documents for reporting year 2026
+    - Skip already processed files (use --force to reprocess all)
+"""
 
 import argparse
 import logging
@@ -63,11 +80,11 @@ def process_from_sourcer(
         # Initialize document sourcer
         sourcer = ORSADocumentSourcer(cred_file=credentials_file, berichtsjahr=berichtsjahr)
         
-        logger.info("Loading documents from FINMA database...")
-        
         # Process documents through pipeline
+        logger.info("Loading documents from FINMA database...")
         summary = pipeline.process_from_sourcer(sourcer)
-        
+
+        # Display summary
         logger.info("=" * 60)
         logger.info("PROCESSING SUMMARY")
         logger.info("=" * 60)
@@ -113,6 +130,8 @@ def process_from_sourcer(
         # Close pipeline
         pipeline.close()
         logger.info("Processing completed successfully")
+
+        return summary
 
     except Exception as e:
         logger.error(f"Processing failed: {e}", exc_info=True)
@@ -214,8 +233,9 @@ def main():
     parser.add_argument(
         "--credentials",
         "-c",
+        type=str,
         default="credentials.env",
-        help="Path to credentials file (default: credentials.env)",
+        help="Path to credentials.env file (default: credentials.env)",
     )
     parser.add_argument(
         "--berichtsjahr",

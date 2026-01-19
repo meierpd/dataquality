@@ -35,7 +35,6 @@ dataquality/
   src/
     orsa_analysis/
       __init__.py
-      cli.py              # Command-line interface  
       core/               # Core processing logic
         __init__.py
         processor.py      # Document processor with versioning
