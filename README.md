@@ -71,9 +71,6 @@ dataquality/
 ```bash
 # Install in editable mode for development
 pip install -e .
-
-# Or install from repository
-pip install git+https://github.com/meierpd/dataquality.git
 ```
 
 ## Quick Start
