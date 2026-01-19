@@ -45,7 +45,7 @@ dev = [
 ]
 
 [project.scripts]
-orsa-qc = "orsa_analysis.cli:main"
+orsa-qc = "orsa_analysis.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/meierpd/dataquality"
