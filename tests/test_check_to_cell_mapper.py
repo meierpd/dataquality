@@ -56,22 +56,6 @@ class TestGetCellLocation:
 class TestGetValueFromResult:
     """Test get_value_from_result method."""
     
-    def test_bool_value_fulfilled(self):
-        """Test extracting bool value when check is fulfilled (1)."""
-        mapper = CheckToCellMapper()
-        result = {"outcome_bool": 1, "outcome_str": "genügend"}
-        
-        value = mapper.get_value_from_result(result, "Sheet1", "A1", "bool")
-        assert value == "erfüllt"
-    
-    def test_bool_value_not_fulfilled(self):
-        """Test extracting bool value when check is not fulfilled (0)."""
-        mapper = CheckToCellMapper()
-        result = {"outcome_bool": 0, "outcome_str": "zu prüfen"}
-        
-        value = mapper.get_value_from_result(result, "Sheet1", "A1", "bool")
-        assert value == "nicht erfüllt"
-    
     def test_outcome_str_value(self):
         """Test extracting outcome_str value."""
         mapper = CheckToCellMapper()
@@ -163,4 +147,4 @@ class TestDefaultMappings:
             sheet_name, cell_address, value_type = mapping
             assert isinstance(sheet_name, str)
             assert isinstance(cell_address, str)
-            assert value_type in ["bool", "outcome_str", "outcome_bool"]
+            assert value_type in ["outcome_str", "outcome_bool"]
