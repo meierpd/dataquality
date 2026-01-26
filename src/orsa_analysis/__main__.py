@@ -128,7 +128,7 @@ def process_from_sourcer(
             # Generate reports
             report_paths = report_gen.generate_all_reports(
                 source_files=source_files,
-                force_overwrite=False
+                force_overwrite=force_reprocess
             )
             
             logger.info("=" * 60)
@@ -314,7 +314,7 @@ def main():
             template_file=args.template,
             institute_id=args.institute,
             berichtsjahr=args.berichtsjahr,
-            force_overwrite=args.force_overwrite,
+            force_overwrite=args.force or args.force_overwrite,
             upload_reports=upload_enabled,
         )
     else:

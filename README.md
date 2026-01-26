@@ -121,7 +121,7 @@ orsa-qc --berichtsjahr 2026 --reports-only --institute 10001 --upload
 
 ### Reprocessing
 
-Force reprocessing ignores the cache and recalculates all quality checks:
+Force reprocessing ignores the cache and recalculates all quality checks. The `--force` flag also forces regeneration of existing reports:
 
 ```bash
 # Force reprocess ALL companies (ignores cache, recalculates all checks)
@@ -131,15 +131,14 @@ orsa-qc --berichtsjahr 2026 --force
 orsa-qc --berichtsjahr 2026 --force --upload
 
 # Regenerate report for one specific company (using existing check results from database)
-orsa-qc --berichtsjahr 2026 --reports-only --institute 10001 --force-overwrite
+orsa-qc --berichtsjahr 2026 --reports-only --institute 10001 --force
 ```
 
 **Important:** 
 - **`--berichtsjahr` is required** for all commands
 - Quality checks always process **ALL companies** from the database
 - To generate reports for only **ONE company**, use `--reports-only --institute 10001`
-- Use `--force` to ignore cache and rerun all quality checks
-- Use `--force-overwrite` to regenerate an existing report file
+- Use `--force` to ignore cache and rerun all quality checks, OR to regenerate existing report files
 - Use `--upload` to enable SharePoint upload (disabled by default)
 
 ### Library Usage
