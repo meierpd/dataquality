@@ -51,7 +51,7 @@ def process_from_sourcer(
     generate_reports: bool = True,
     output_dir: str = "reports",
     template_file: str = "data/auswertungs_template.xlsx",
-    upload_reports: bool = True
+    upload_reports: bool = False
 ) -> None:
     """Process documents from ORSADocumentSourcer and write to MSSQL database.
 
@@ -59,11 +59,11 @@ def process_from_sourcer(
         force_reprocess: If True, reprocess all files regardless of cache
         verbose: If True, enable verbose logging
         credentials_file: Path to credentials.env file
-        berichtsjahr: Reporting year to filter documents (default: 2026)
+        berichtsjahr: Reporting year to filter documents (required)
         generate_reports: If True, generate Excel reports after processing (default: True)
         output_dir: Directory for output reports (default: reports)
         template_file: Path to template file (default: data/auswertungs_template.xlsx)
-        upload_reports: If True, upload reports to SharePoint (default: True)
+        upload_reports: If True, upload reports to SharePoint (default: False)
     """
     setup_logging(verbose)
 
@@ -156,7 +156,7 @@ def generate_reports_only(
     institute_id: str = None,
     berichtsjahr: int = 2026,
     force_overwrite: bool = False,
-    upload_reports: bool = True
+    upload_reports: bool = False
 ) -> None:
     """Generate reports from existing check results in database.
 
@@ -166,9 +166,9 @@ def generate_reports_only(
         output_dir: Directory for output reports
         template_file: Path to template file
         institute_id: Optional specific institute to generate report for
-        berichtsjahr: Reporting year for sourcing files (default: 2026)
+        berichtsjahr: Reporting year for sourcing files (required)
         force_overwrite: If True, overwrite existing reports
-        upload_reports: If True, upload reports to SharePoint (default: True)
+        upload_reports: If True, upload reports to SharePoint (default: False)
     """
     setup_logging(verbose)
 
@@ -258,8 +258,8 @@ def main():
         "--berichtsjahr",
         "-b",
         type=int,
-        default=2026,
-        help="Reporting year to filter documents (default: 2026)",
+        required=True,
+        help="Reporting year to filter documents (required)",
     )
     parser.add_argument(
         "--no-reports",
@@ -295,15 +295,15 @@ def main():
         help="Overwrite existing report files (use with --reports-only)",
     )
     parser.add_argument(
-        "--no-upload",
+        "--upload",
         action="store_true",
-        help="Disable uploading reports to SharePoint (reports are uploaded by default)",
+        help="Upload generated reports to SharePoint (disabled by default)",
     )
 
     args = parser.parse_args()
 
-    # Determine if upload should be enabled (opposite of --no-upload flag)
-    upload_enabled = not args.no_upload
+    # Determine if upload should be enabled (based on --upload flag)
+    upload_enabled = args.upload
 
     # Run in reports-only mode
     if args.reports_only:

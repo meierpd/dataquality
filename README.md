@@ -78,65 +78,69 @@ pip install -e .
 
 ## Quick Start
 
-The package can be used as a library or via the command-line interface.
+This tool processes ORSA Excel files through quality checks and generates evaluation reports. 
 
-### Command-Line Usage
+**Important:** The `--berichtsjahr` parameter is **required** for all commands.
 
-**Basic Processing:**
+### What Happens
 
-```bash
-# Process ORSA documents from sourcer (writes to MSSQL)
-orsa-qc --verbose
+1. **Processing to Database** (runs for ALL companies): Downloads ORSA documents → Runs quality checks → Stores results in MSSQL
+2. **Report Generation** (per company): Retrieves check results from database → Creates Excel report → Saves to `reports/` folder
+3. **SharePoint Upload** (per company, optional): Uploads generated report back to SharePoint (same location as source file)
 
-# Process documents for a specific reporting year (default: 2026)
-orsa-qc --berichtsjahr 2026 --verbose
+### Testing Mode (Default - No SharePoint Upload)
 
-# Force reprocess all files
-orsa-qc --force --verbose
-
-# Use custom credentials file
-orsa-qc --credentials /path/to/credentials.env
-
-# Combine options: process 2027 documents with verbose output
-orsa-qc --berichtsjahr 2027 --verbose
-```
-
-**Report Generation:**
+Use this during development and testing (reports saved locally only):
 
 ```bash
-# Process documents AND generate reports in one command (uploads enabled by default)
-orsa-qc --generate-reports --verbose
+# Process all documents (checks only, no reports)
+orsa-qc --berichtsjahr 2026 --no-reports
 
-# Specify custom output directory and template
-orsa-qc --generate-reports --output-dir ./my_reports --template ./my_template.xlsx
+# Process and generate reports (saved locally in reports/ folder, NOT uploaded)
+orsa-qc --berichtsjahr 2026
 
-# Generate reports only (without running checks) from existing database results
-orsa-qc --reports-only --verbose
-
-# Generate report for a specific institute
-orsa-qc --reports-only --institute INST001 --verbose
-
-# Force overwrite existing reports
-orsa-qc --reports-only --force-overwrite --verbose
-
-# Disable SharePoint upload (reports generated locally only)
-orsa-qc --reports-only --no-upload --verbose
-
-# Combine: process 2027 documents and generate reports
-orsa-qc --berichtsjahr 2027 --generate-reports --verbose
+# Generate reports only for one company (from existing database results, NOT uploaded)
+orsa-qc --berichtsjahr 2026 --reports-only --institute 10001
 ```
 
-Or run main.py directly:
+### Production Mode (With SharePoint Upload)
+
+Use this in production to automatically upload reports - **add the `--upload` flag**:
 
 ```bash
-python main.py --verbose
+# Process all documents, generate reports, and upload to SharePoint
+orsa-qc --berichtsjahr 2026 --upload
 
-# Process and generate reports
-python main.py --berichtsjahr 2026 --generate-reports --verbose
-
-# Generate reports only
-python main.py --reports-only --verbose
+# Generate reports only for one company and upload to SharePoint
+orsa-qc --berichtsjahr 2026 --reports-only --institute 10001 --upload
 ```
+
+**Note:** 
+- Reports are **NOT uploaded by default** - you must add `--upload` to enable SharePoint upload
+- Use `--no-reports` to skip report generation entirely (only run quality checks)
+
+### Reprocessing
+
+Force reprocessing ignores the cache and recalculates all quality checks:
+
+```bash
+# Force reprocess ALL companies (ignores cache, recalculates all checks)
+orsa-qc --berichtsjahr 2026 --force
+
+# Force reprocess and upload
+orsa-qc --berichtsjahr 2026 --force --upload
+
+# Regenerate report for one specific company (using existing check results from database)
+orsa-qc --berichtsjahr 2026 --reports-only --institute 10001 --force-overwrite
+```
+
+**Important:** 
+- **`--berichtsjahr` is required** for all commands
+- Quality checks always process **ALL companies** from the database
+- To generate reports for only **ONE company**, use `--reports-only --institute 10001`
+- Use `--force` to ignore cache and rerun all quality checks
+- Use `--force-overwrite` to regenerate an existing report file
+- Use `--upload` to enable SharePoint upload (disabled by default)
 
 ### Library Usage
 
@@ -299,16 +303,16 @@ The institut metadata is sourced from the `institut_metadata.sql` query and merg
 
 ```bash
 # Option 1: Process and generate reports in one command
-orsa-qc --berichtsjahr 2026 --verbose
+orsa-qc --berichtsjahr 2026
 
 # Option 2: Generate reports separately from existing database results
-orsa-qc --reports-only --verbose
+orsa-qc --berichtsjahr 2026 --reports-only
 
 # Generate report for specific institute
-orsa-qc --reports-only --institute INST001 --verbose
+orsa-qc --berichtsjahr 2026 --reports-only --institute 10001
 
 # Specify custom output directory and template
-orsa-qc --reports-only --output-dir ./my_reports --template ./my_template.xlsx
+orsa-qc --berichtsjahr 2026 --reports-only --output-dir ./my_reports --template ./my_template.xlsx
 ```
 
 **Via Library:**
@@ -419,7 +423,7 @@ mapper = CheckMapper(mappings=custom_mappings)
 Place your custom template Excel file with an "Auswertung" sheet and specify its path:
 
 ```bash
-orsa-qc --reports-only --template /path/to/custom_template.xlsx
+orsa-qc --berichtsjahr 2026 --reports-only --template /path/to/custom_template.xlsx
 ```
 
 ## Multi-Language Support
@@ -631,14 +635,14 @@ Generated reports can be automatically uploaded back to SharePoint in the same f
 
 ### Configuration
 
-Upload is **enabled by default** when generating reports. To disable upload:
+Upload is **disabled by default**. To enable upload, add the `--upload` flag:
 
 ```bash
-# Disable upload via CLI
-orsa-qc --reports-only --no-upload --verbose
+# Enable upload when generating reports only
+orsa-qc --berichtsjahr 2026 --reports-only --upload
 
-# Or when processing and generating reports
-orsa-qc --berichtsjahr 2026 --no-upload --verbose
+# Enable upload when processing and generating reports
+orsa-qc --berichtsjahr 2026 --upload
 ```
 
 ### Programmatic Usage
