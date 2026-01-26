@@ -155,6 +155,85 @@ class TestCellOperations:
             cell_value = manager.output_wb["Auswertung"][cell].value
             assert isinstance(cell_value, expected_type)
             assert cell_value == value
+    
+    def test_write_cell_value_numeric_string_to_int(self, temp_template_file, temp_source_file):
+        """Test that numeric strings are converted to integers."""
+        manager = ExcelTemplateManager(temp_template_file)
+        manager.create_output_workbook(temp_source_file)
+        
+        # Write a string representation of an integer
+        success = manager.write_cell_value("Auswertung", "B1", "42")
+        assert success is True
+        
+        # Verify it was converted to an actual integer
+        cell_value = manager.output_wb["Auswertung"]["B1"].value
+        assert isinstance(cell_value, int)
+        assert cell_value == 42
+    
+    def test_write_cell_value_numeric_string_to_float(self, temp_template_file, temp_source_file):
+        """Test that numeric strings with decimals are converted to floats."""
+        manager = ExcelTemplateManager(temp_template_file)
+        manager.create_output_workbook(temp_source_file)
+        
+        # Write a string representation of a float
+        success = manager.write_cell_value("Auswertung", "B2", "42.5")
+        assert success is True
+        
+        # Verify it was converted to an actual float
+        cell_value = manager.output_wb["Auswertung"]["B2"].value
+        assert isinstance(cell_value, float)
+        assert cell_value == 42.5
+    
+    def test_write_cell_value_negative_numeric_strings(self, temp_template_file, temp_source_file):
+        """Test that negative numeric strings are converted correctly."""
+        manager = ExcelTemplateManager(temp_template_file)
+        manager.create_output_workbook(temp_source_file)
+        
+        # Test negative integer
+        success = manager.write_cell_value("Auswertung", "B3", "-15")
+        assert success is True
+        cell_value = manager.output_wb["Auswertung"]["B3"].value
+        assert isinstance(cell_value, int)
+        assert cell_value == -15
+        
+        # Test negative float
+        success = manager.write_cell_value("Auswertung", "B4", "-15.75")
+        assert success is True
+        cell_value = manager.output_wb["Auswertung"]["B4"].value
+        assert isinstance(cell_value, float)
+        assert cell_value == -15.75
+    
+    def test_write_cell_value_non_numeric_strings_unchanged(self, temp_template_file, temp_source_file):
+        """Test that non-numeric strings remain as strings."""
+        manager = ExcelTemplateManager(temp_template_file)
+        manager.create_output_workbook(temp_source_file)
+        
+        # Write non-numeric strings
+        test_cases = [
+            ("B5", "genügend"),
+            ("B6", "zu prüfen"),
+            ("B7", "abc123"),
+            ("B8", "12.34.56"),  # Invalid number format
+        ]
+        
+        for cell, value in test_cases:
+            success = manager.write_cell_value("Auswertung", cell, value)
+            assert success is True
+            cell_value = manager.output_wb["Auswertung"][cell].value
+            assert isinstance(cell_value, str)
+            assert cell_value == value
+    
+    def test_write_cell_value_empty_string_unchanged(self, temp_template_file, temp_source_file):
+        """Test that empty strings remain as empty strings."""
+        manager = ExcelTemplateManager(temp_template_file)
+        manager.create_output_workbook(temp_source_file)
+        
+        # Write empty string
+        success = manager.write_cell_value("Auswertung", "B9", "")
+        assert success is True
+        cell_value = manager.output_wb["Auswertung"]["B9"].value
+        # Empty string in openpyxl might be None or ""
+        assert cell_value in ["", None]
 
 
 class TestWorkbookSaving:
