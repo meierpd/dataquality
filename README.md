@@ -119,9 +119,19 @@ orsa-qc --berichtsjahr 2026 --reports-only --institute 10001 --upload
 - Reports are **NOT uploaded by default** - you must add `--upload` to enable SharePoint upload
 - Use `--no-reports` to skip report generation entirely (only run quality checks)
 
+### Report Behavior
+
+**Local Reports (reports/ folder):**
+- Reports are **always overwritten** when regenerated
+- No need for a `--force` flag - the latest version is always saved locally
+
+**SharePoint Uploads:**
+- Files are **skipped if they already exist** on SharePoint (prevents accidental overwrites)
+- Use `--upload` to enable SharePoint upload (disabled by default)
+
 ### Reprocessing
 
-Force reprocessing ignores the cache and recalculates all quality checks. The `--force` flag also forces regeneration of existing reports:
+Force reprocessing ignores the cache and recalculates all quality checks:
 
 ```bash
 # Force reprocess ALL companies (ignores cache, recalculates all checks)
@@ -131,14 +141,15 @@ orsa-qc --berichtsjahr 2026 --force
 orsa-qc --berichtsjahr 2026 --force --upload
 
 # Regenerate report for one specific company (using existing check results from database)
-orsa-qc --berichtsjahr 2026 --reports-only --institute 10001 --force
+orsa-qc --berichtsjahr 2026 --reports-only --institute 10001
 ```
 
 **Important:** 
 - **`--berichtsjahr` is required** for all commands
 - Quality checks always process **ALL companies** from the database
 - To generate reports for only **ONE company**, use `--reports-only --institute 10001`
-- Use `--force` to ignore cache and rerun all quality checks, OR to regenerate existing report files
+- Use `--force` to ignore cache and rerun all quality checks for files
+- Local reports are always overwritten; SharePoint files are skipped if they exist
 - Use `--upload` to enable SharePoint upload (disabled by default)
 
 ### Library Usage
@@ -329,14 +340,13 @@ report_gen = ReportGenerator(
     output_dir=Path("reports")
 )
 
-# Generate report for single institute
+# Generate report for single institute (always overwrites local file if exists)
 report_path = report_gen.generate_report(
     institute_id="INST001",
-    source_file_path=Path("data/orsa_response_files/INST001_orsa.xlsx"),
-    force_overwrite=False
+    source_file_path=Path("data/orsa_response_files/INST001_orsa.xlsx")
 )
 
-# Generate reports for all institutes with results
+# Generate reports for all institutes with results (always overwrites local files)
 source_files = {
     "INST001": Path("data/orsa_response_files/INST001_orsa.xlsx"),
     "INST002": Path("data/orsa_response_files/INST002_orsa.xlsx"),
@@ -389,9 +399,9 @@ The system includes several built-in format rules for transforming check results
 ### Report Versioning
 
 Reports are automatically versioned based on the check results version in the database:
-- Filename format: `{institute_id}_ORSA_Report_v{version}.xlsx`
-- By default, existing reports are not overwritten
-- Use `force_overwrite=True` to regenerate existing reports
+- Filename format: `Auswertung_{institute_id}_{source_file_name}.xlsx`
+- Local report files are **always overwritten** when regenerated
+- SharePoint uploads skip if file already exists (prevents accidental overwrites)
 
 ### Customizing Reports
 

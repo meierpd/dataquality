@@ -61,17 +61,18 @@ class ReportGenerator:
     
     def generate_report(self, 
                        institute_id: str,
-                       source_file_path: Optional[Path] = None,
-                       force_overwrite: bool = False) -> Optional[Path]:
+                       source_file_path: Optional[Path] = None) -> Optional[Path]:
         """Generate report for a single institute.
+        
+        Local report files are always overwritten if they exist.
+        SharePoint uploads skip if file already exists (see enable_upload parameter).
         
         Args:
             institute_id: Institute identifier (FinmaID)
             source_file_path: Optional path to source ORSA file
-            force_overwrite: If True, overwrite existing report file
             
         Returns:
-            Path to generated report file, or None if generation failed or skipped
+            Path to generated report file, or None if generation failed
         """
         logger.info(f"Generating report for institute: {institute_id}")
         
@@ -91,11 +92,9 @@ class ReportGenerator:
         # Determine output file path
         output_path = self._get_output_path(institute_id, source_file_path)
         
-        # Check if file already exists
-        if output_path.exists() and not force_overwrite:
-            logger.info(f"Report already exists: {output_path}")
-            logger.info(f"Skipping generation (use force_overwrite=True to regenerate)")
-            return None
+        # Always overwrite local reports if they exist
+        if output_path.exists():
+            logger.info(f"Report already exists locally, will overwrite: {output_path}")
         
         # Create standalone output workbook from template
         try:
@@ -126,13 +125,14 @@ class ReportGenerator:
         return output_path
     
     def generate_all_reports(self, 
-                           source_files: Optional[Dict[str, Path]] = None,
-                           force_overwrite: bool = False) -> List[Path]:
+                           source_files: Optional[Dict[str, Path]] = None) -> List[Path]:
         """Generate reports for all institutes with check results.
+        
+        Local report files are always overwritten if they exist.
+        SharePoint uploads skip if file already exists (see enable_upload parameter).
         
         Args:
             source_files: Optional mapping of institute_id -> source file path
-            force_overwrite: If True, overwrite existing report files
             
         Returns:
             List of paths to generated report files
@@ -154,8 +154,7 @@ class ReportGenerator:
             # Generate report
             report_path = self.generate_report(
                 institute_id, 
-                source_path,
-                force_overwrite
+                source_path
             )
             
             if report_path:
