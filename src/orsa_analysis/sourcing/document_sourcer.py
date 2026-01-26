@@ -3,7 +3,7 @@
 import os
 import logging
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import pandas as pd
 import requests
@@ -47,6 +47,7 @@ class ORSADocumentSourcer:
         self.cred_file = self.base_dir.parent.parent.parent / cred_file
         self.default_target_dir = self.base_dir.parent.parent.parent / "data" / "orsa_response_files"
         self.berichtsjahr = berichtsjahr
+        self.download_links = {}  # Maps institute_id (FinmaID) -> download_link
         logger.info(f"Initialized ORSADocumentSourcer for Berichtsjahr {berichtsjahr}")
 
     def _load_query(self, name: str) -> str:
@@ -178,6 +179,11 @@ class ORSADocumentSourcer:
                 r.raise_for_status()
                 out.write_bytes(r.content)
                 results.append((name, out, geschaeft_nr, finma_id, berichtsjahr))
+                
+                # Store download link for this institute (for later upload)
+                if finma_id:
+                    self.download_links[finma_id] = link
+                
                 logger.info(f"  ✓ Saved to: {out}")
             except Exception as e:
                 logger.error(f"  ✗ Failed to download {name}: {e}")
@@ -191,6 +197,7 @@ class ORSADocumentSourcer:
         This is the main entry point that:
         1. Retrieves document metadata from database (filtered by berichtsjahr)
         2. Downloads documents locally
+        3. Stores download links for later use (e.g., uploading reports)
         
         Args:
             target_dir: Directory to save files (default: orsa_response_files/)
@@ -203,6 +210,18 @@ class ORSADocumentSourcer:
         documents = self.download_documents(document_metadata_df, target_dir)
         logger.info(f"Document loading complete: {len(documents)} files ready")
         return documents
+    
+    def get_download_links(self) -> Dict[str, str]:
+        """Get the mapping of institute IDs to download links.
+        
+        Returns:
+            Dictionary mapping FinmaID -> DokumentLink
+            
+        Note:
+            This method should be called after load() to get the links
+            for documents that were successfully downloaded.
+        """
+        return self.download_links.copy()
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ This project provides an automated way to validate Excel files submitted by inst
 * **Modular Check System**: Extensible Python-based quality checks with simple registration
 * **Multi-Language Support**: Automatic detection and handling of German, English, and French Excel sheet names
 * **Report Generation**: Automated standalone Excel report creation with check results from templates
+* **SharePoint Upload**: Automatic upload of generated reports back to SharePoint (same location as source files)
 * **Database Output**: Denormalized qc_results table ready for MSSQL storage
 * **Force Reprocess Mode**: Option to reprocess files regardless of cache status
 * **ORSADocumentSourcer Integration**: Direct integration with document sourcing system
@@ -27,6 +28,7 @@ This project provides an automated way to validate Excel files submitted by inst
    * Description string (explains why the outcome is as it is)
 4. **Database Writer**: Each result is written as a separate row, including metadata.
 5. **Excel Report Generator**: A formatted workbook is created for each institute showing results plus empty fields for manual assessment.
+6. **SharePoint Uploader**: Generated reports are automatically uploaded back to SharePoint in the same folder as the source documents (upload can be disabled with `--no-upload` flag).
 
 ## Directory Structure
 
@@ -51,9 +53,10 @@ dataquality/
         document_sourcer.py  # ORSADocumentSourcer
       reporting/          # Report generation
         __init__.py
-        check_mapper.py   # Check to cell mapping
-        template_manager.py  # Excel template operations
+        check_to_cell_mapper.py   # Check to cell mapping
+        excel_template_manager.py  # Excel template operations
         report_generator.py  # Report orchestration
+        sharepoint_uploader.py  # SharePoint upload functionality
   data/
     orsa_response_files/  # Downloaded documents storage
   sql/
@@ -101,7 +104,7 @@ orsa-qc --berichtsjahr 2027 --verbose
 **Report Generation:**
 
 ```bash
-# Process documents AND generate reports in one command
+# Process documents AND generate reports in one command (uploads enabled by default)
 orsa-qc --generate-reports --verbose
 
 # Specify custom output directory and template
@@ -115,6 +118,9 @@ orsa-qc --reports-only --institute INST001 --verbose
 
 # Force overwrite existing reports
 orsa-qc --reports-only --force-overwrite --verbose
+
+# Disable SharePoint upload (reports generated locally only)
+orsa-qc --reports-only --no-upload --verbose
 
 # Combine: process 2027 documents and generate reports
 orsa-qc --berichtsjahr 2027 --generate-reports --verbose
@@ -611,6 +617,78 @@ The report generator automatically converts string representations of numbers to
 This feature prevents issues where Excel formulas fail because numeric values are stored as text strings.
 
 The source ORSA files remain separate and unchanged.
+
+## SharePoint Upload
+
+Generated reports can be automatically uploaded back to SharePoint in the same folder where the source documents were downloaded from. This feature uses the WebDAV protocol and NTLM authentication.
+
+### Features
+
+* **Automatic Folder Resolution**: Upload location is automatically determined from the source document's download link
+* **Smart Skip Logic**: Files with the same name are not overwritten - upload is skipped if file already exists
+* **Secure Authentication**: Uses the same credentials (DB_USER/DB_PASSWORD) as document downloading
+* **Error Handling**: Comprehensive error handling with detailed logging
+
+### Configuration
+
+Upload is **enabled by default** when generating reports. To disable upload:
+
+```bash
+# Disable upload via CLI
+orsa-qc --reports-only --no-upload --verbose
+
+# Or when processing and generating reports
+orsa-qc --berichtsjahr 2026 --no-upload --verbose
+```
+
+### Programmatic Usage
+
+```python
+from pathlib import Path
+from orsa_analysis import DatabaseManager
+from orsa_analysis.reporting import ReportGenerator
+from orsa_analysis.sourcing import ORSADocumentSourcer
+
+# Initialize components
+db_manager = DatabaseManager()
+sourcer = ORSADocumentSourcer(berichtsjahr=2026)
+
+# Load documents and get download links
+documents = sourcer.load()
+download_links = sourcer.get_download_links()
+
+# Create source files mapping
+source_files = {
+    finma_id: file_path 
+    for _, file_path, _, finma_id, _ in documents
+}
+
+# Initialize report generator with upload enabled
+report_gen = ReportGenerator(
+    db_manager=db_manager,
+    template_path=Path("data/auswertungs_template.xlsx"),
+    output_dir=Path("reports"),
+    enable_upload=True,
+    download_links=download_links
+)
+
+# Generate reports (will automatically upload to SharePoint)
+report_paths = report_gen.generate_all_reports(source_files=source_files)
+```
+
+### Upload Behavior
+
+1. **Folder Resolution**: The uploader follows the redirect in the source document's download link to determine the actual SharePoint folder
+2. **File Check**: Before uploading, checks if a file with the same name already exists
+3. **Skip if Exists**: If file exists and `skip_if_exists=True` (default), upload is skipped
+4. **Upload**: New files are uploaded using HTTP PUT with NTLM authentication
+5. **Logging**: All upload operations are logged with clear success/failure messages
+
+### Requirements
+
+* Valid DB_USER and DB_PASSWORD in environment (set automatically by DatabaseManager)
+* Network access to SharePoint server
+* Optional: SwisscomRootCore.crt certificate file for SSL verification
 
 ## Power BI
 

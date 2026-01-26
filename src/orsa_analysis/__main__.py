@@ -50,7 +50,8 @@ def process_from_sourcer(
     berichtsjahr: int = 2026,
     generate_reports: bool = True,
     output_dir: str = "reports",
-    template_file: str = "data/auswertungs_template.xlsx"
+    template_file: str = "data/auswertungs_template.xlsx",
+    upload_reports: bool = True
 ) -> None:
     """Process documents from ORSADocumentSourcer and write to MSSQL database.
 
@@ -62,6 +63,7 @@ def process_from_sourcer(
         generate_reports: If True, generate Excel reports after processing (default: True)
         output_dir: Directory for output reports (default: reports)
         template_file: Path to template file (default: data/auswertungs_template.xlsx)
+        upload_reports: If True, upload reports to SharePoint (default: True)
     """
     setup_logging(verbose)
 
@@ -69,6 +71,7 @@ def process_from_sourcer(
     logger.info(f"Force reprocess: {force_reprocess}")
     logger.info(f"Berichtsjahr: {berichtsjahr}")
     logger.info(f"Generate reports: {generate_reports}")
+    logger.info(f"Upload reports: {upload_reports}")
 
     try:
         # Initialize database manager - it will handle credentials automatically
@@ -110,11 +113,16 @@ def process_from_sourcer(
                 # Use FinmaID from database as the institute_id
                 source_files[finma_id] = Path(file_path)
             
+            # Get download links for upload
+            download_links = sourcer.get_download_links() if upload_reports else {}
+            
             # Initialize report generator
             report_gen = ReportGenerator(
                 db_manager=db_manager,
                 template_path=Path(template_file),
-                output_dir=Path(output_dir)
+                output_dir=Path(output_dir),
+                enable_upload=upload_reports,
+                download_links=download_links
             )
             
             # Generate reports
@@ -125,6 +133,8 @@ def process_from_sourcer(
             
             logger.info("=" * 60)
             logger.info(f"Generated {len(report_paths)} reports in {output_dir}")
+            if upload_reports:
+                logger.info("Reports uploaded to SharePoint (where applicable)")
             logger.info("=" * 60)
         
         # Close pipeline
@@ -145,7 +155,8 @@ def generate_reports_only(
     template_file: str = "data/auswertungs_template.xlsx",
     institute_id: str = None,
     berichtsjahr: int = 2026,
-    force_overwrite: bool = False
+    force_overwrite: bool = False,
+    upload_reports: bool = True
 ) -> None:
     """Generate reports from existing check results in database.
 
@@ -157,6 +168,7 @@ def generate_reports_only(
         institute_id: Optional specific institute to generate report for
         berichtsjahr: Reporting year for sourcing files (default: 2026)
         force_overwrite: If True, overwrite existing reports
+        upload_reports: If True, upload reports to SharePoint (default: True)
     """
     setup_logging(verbose)
 
@@ -178,11 +190,16 @@ def generate_reports_only(
         
         logger.info(f"Found {len(source_files)} source files")
         
+        # Get download links for upload
+        download_links = sourcer.get_download_links() if upload_reports else {}
+        
         # Initialize report generator
         report_gen = ReportGenerator(
             db_manager=db_manager,
             template_path=Path(template_file),
-            output_dir=Path(output_dir)
+            output_dir=Path(output_dir),
+            enable_upload=upload_reports,
+            download_links=download_links
         )
         
         # Generate reports
@@ -277,8 +294,16 @@ def main():
         action="store_true",
         help="Overwrite existing report files (use with --reports-only)",
     )
+    parser.add_argument(
+        "--no-upload",
+        action="store_true",
+        help="Disable uploading reports to SharePoint (reports are uploaded by default)",
+    )
 
     args = parser.parse_args()
+
+    # Determine if upload should be enabled (opposite of --no-upload flag)
+    upload_enabled = not args.no_upload
 
     # Run in reports-only mode
     if args.reports_only:
@@ -290,6 +315,7 @@ def main():
             institute_id=args.institute,
             berichtsjahr=args.berichtsjahr,
             force_overwrite=args.force_overwrite,
+            upload_reports=upload_enabled,
         )
     else:
         # Run normal processing (with optional report generation)
@@ -301,6 +327,7 @@ def main():
             generate_reports=not args.no_reports,
             output_dir=args.output_dir,
             template_file=args.template,
+            upload_reports=upload_enabled,
         )
 
 

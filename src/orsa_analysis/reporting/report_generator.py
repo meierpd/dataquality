@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Tuple
 from orsa_analysis.core.database_manager import DatabaseManager
 from orsa_analysis.reporting.excel_template_manager import ExcelTemplateManager
 from orsa_analysis.reporting.check_to_cell_mapper import CheckToCellMapper
+from orsa_analysis.reporting.sharepoint_uploader import SharePointUploader
 
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,9 @@ class ReportGenerator:
                  db_manager: DatabaseManager,
                  template_path: Path,
                  output_dir: Path,
-                 check_mapper: Optional[CheckToCellMapper] = None):
+                 check_mapper: Optional[CheckToCellMapper] = None,
+                 enable_upload: bool = False,
+                 download_links: Optional[Dict[str, str]] = None):
         """Initialize report generator.
         
         Args:
@@ -27,11 +30,26 @@ class ReportGenerator:
             template_path: Path to template Excel file
             output_dir: Directory for output files
             check_mapper: Optional custom check mapper. If None, uses default.
+            enable_upload: If True, upload reports to SharePoint (default: False)
+            download_links: Optional mapping of institute_id -> download_link for uploads
         """
         self.db_manager = db_manager
         self.template_manager = ExcelTemplateManager(template_path)
         self.output_dir = Path(output_dir)
         self.check_mapper = check_mapper if check_mapper is not None else CheckToCellMapper()
+        self.enable_upload = enable_upload
+        self.download_links = download_links or {}
+        self.uploader = None
+        
+        # Initialize SharePoint uploader if upload is enabled
+        if self.enable_upload:
+            try:
+                self.uploader = SharePointUploader()
+                logger.info("SharePoint upload enabled")
+            except Exception as e:
+                logger.warning(f"Failed to initialize SharePoint uploader: {e}")
+                logger.warning("Reports will be generated but not uploaded")
+                self.enable_upload = False
         
         # Ensure output directory exists
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -39,6 +57,7 @@ class ReportGenerator:
         logger.info(f"ReportGenerator initialized")
         logger.info(f"  Template: {template_path}")
         logger.info(f"  Output dir: {output_dir}")
+        logger.info(f"  Upload enabled: {self.enable_upload}")
     
     def generate_report(self, 
                        institute_id: str,
@@ -99,6 +118,11 @@ class ReportGenerator:
         self.template_manager.close()
         
         logger.info(f"Report generated successfully: {output_path}")
+        
+        # Upload to SharePoint if enabled
+        if self.enable_upload and self.uploader:
+            self._upload_report(institute_id, output_path)
+        
         return output_path
     
     def generate_all_reports(self, 
@@ -268,6 +292,47 @@ class ReportGenerator:
             
         except Exception as e:
             logger.error(f"Failed to apply institut metadata: {e}")
+            return False
+    
+    def _upload_report(self, institute_id: str, report_path: Path) -> bool:
+        """Upload report to SharePoint.
+        
+        Args:
+            institute_id: Institute identifier
+            report_path: Path to generated report file
+            
+        Returns:
+            True if upload was successful or skipped, False otherwise
+        """
+        if institute_id not in self.download_links:
+            logger.warning(
+                f"No download link found for institute {institute_id}. "
+                f"Report will not be uploaded."
+            )
+            return False
+        
+        download_link = self.download_links[institute_id]
+        
+        try:
+            logger.info(f"Uploading report for {institute_id} to SharePoint...")
+            result = self.uploader.upload(
+                download_link=download_link,
+                filepath=str(report_path),
+                skip_if_exists=True
+            )
+            
+            if result["success"]:
+                if result["skipped"]:
+                    logger.info(f"Report already exists on SharePoint: {report_path.name}")
+                else:
+                    logger.info(f"✓ Report uploaded successfully: {report_path.name}")
+                return True
+            else:
+                logger.error(f"✗ Upload failed: {result['message']}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Upload failed with exception: {e}", exc_info=True)
             return False
     
     def _get_output_path(self, institute_id: str, source_file_path: Path) -> Path:
