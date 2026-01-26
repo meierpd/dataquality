@@ -78,7 +78,9 @@ pip install -e .
 
 ## Quick Start
 
-This tool processes ORSA Excel files through quality checks and generates evaluation reports. There are two main workflows:
+This tool processes ORSA Excel files through quality checks and generates evaluation reports. 
+
+**Important:** The `--berichtsjahr` parameter is **required** for all commands.
 
 ### What Happens
 
@@ -86,34 +88,36 @@ This tool processes ORSA Excel files through quality checks and generates evalua
 2. **Report Generation** (per company): Retrieves check results from database → Creates Excel report → Saves to `reports/` folder
 3. **SharePoint Upload** (per company, optional): Uploads generated report back to SharePoint (same location as source file)
 
-### Testing Mode (No Uploads to SharePoint)
+### Testing Mode (Default - No SharePoint Upload)
 
-Use this during development and testing:
+Use this during development and testing (reports saved locally only):
 
 ```bash
 # Process all documents (checks only, no reports)
 orsa-qc --berichtsjahr 2026 --no-reports
 
 # Process and generate reports (saved locally in reports/ folder, NOT uploaded)
-orsa-qc --berichtsjahr 2026 --no-upload
+orsa-qc --berichtsjahr 2026
 
 # Generate reports only for one company (from existing database results, NOT uploaded)
-orsa-qc --berichtsjahr 2026 --reports-only --institute 10001 --no-upload
+orsa-qc --berichtsjahr 2026 --reports-only --institute 10001
 ```
 
 ### Production Mode (With SharePoint Upload)
 
-Use this in production to automatically upload reports:
+Use this in production to automatically upload reports - **add the `--upload` flag**:
 
 ```bash
 # Process all documents, generate reports, and upload to SharePoint
-orsa-qc --berichtsjahr 2026
+orsa-qc --berichtsjahr 2026 --upload
 
 # Generate reports only for one company and upload to SharePoint
-orsa-qc --berichtsjahr 2026 --reports-only --institute 10001
+orsa-qc --berichtsjahr 2026 --reports-only --institute 10001 --upload
 ```
 
-**Note:** Reports are generated and uploaded by default. Use `--no-reports` to skip report generation or `--no-upload` to keep reports local.
+**Note:** 
+- Reports are **NOT uploaded by default** - you must add `--upload` to enable SharePoint upload
+- Use `--no-reports` to skip report generation entirely (only run quality checks)
 
 ### Reprocessing
 
@@ -123,16 +127,20 @@ Force reprocessing ignores the cache and recalculates all quality checks:
 # Force reprocess ALL companies (ignores cache, recalculates all checks)
 orsa-qc --berichtsjahr 2026 --force
 
+# Force reprocess and upload
+orsa-qc --berichtsjahr 2026 --force --upload
+
 # Regenerate report for one specific company (using existing check results from database)
 orsa-qc --berichtsjahr 2026 --reports-only --institute 10001 --force-overwrite
 ```
 
 **Important:** 
-- Quality checks always process ALL companies from the database
-- To generate reports for only ONE company, use `--reports-only --institute 10001`
+- **`--berichtsjahr` is required** for all commands
+- Quality checks always process **ALL companies** from the database
+- To generate reports for only **ONE company**, use `--reports-only --institute 10001`
 - Use `--force` to ignore cache and rerun all quality checks
 - Use `--force-overwrite` to regenerate an existing report file
-- Use `--no-upload` during testing to keep reports local
+- Use `--upload` to enable SharePoint upload (disabled by default)
 
 ### Library Usage
 
@@ -627,14 +635,14 @@ Generated reports can be automatically uploaded back to SharePoint in the same f
 
 ### Configuration
 
-Upload is **enabled by default** when generating reports. To disable upload:
+Upload is **disabled by default**. To enable upload, add the `--upload` flag:
 
 ```bash
-# Disable upload when generating reports only
-orsa-qc --berichtsjahr 2026 --reports-only --no-upload
+# Enable upload when generating reports only
+orsa-qc --berichtsjahr 2026 --reports-only --upload
 
-# Disable upload when processing and generating reports
-orsa-qc --berichtsjahr 2026 --no-upload
+# Enable upload when processing and generating reports
+orsa-qc --berichtsjahr 2026 --upload
 ```
 
 ### Programmatic Usage
