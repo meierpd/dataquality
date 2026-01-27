@@ -631,8 +631,18 @@ def _is_zweigniederlassungs_version(wb: Workbook) -> bool:
     Returns:
         True if this is a Zweigniederlassungs version, False otherwise
     """
-    mapper = SheetNameMapper(wb)
-    return mapper.has_sheet("Ergebnisse")
+    # Check directly in workbook sheet names to avoid logging warnings
+    # when the sheet doesn't exist (normal for standard version)
+    sheet_names = set(wb.sheetnames)
+    
+    # Check for 'Ergebnisse' in all supported languages
+    zweigniederlassungs_sheets = {
+        "Ergebnisse",  # German
+        "Results",      # English
+        "Résultats"    # French
+    }
+    
+    return bool(zweigniederlassungs_sheets & sheet_names)
 
 
 def _get_filled_results_sheet(wb: Workbook) -> Tuple[bool, str, str, object]:
