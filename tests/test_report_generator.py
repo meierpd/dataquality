@@ -171,8 +171,7 @@ class TestReportGeneratorInstitutMetadata:
             # Generate report
             result = report_generator.generate_report(
                 institute_id="INST001",
-                source_file_path=source_file,
-                force_overwrite=True
+                source_file_path=source_file
             )
             
             # Verify _apply_institut_metadata was called

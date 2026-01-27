@@ -125,10 +125,9 @@ def process_from_sourcer(
                 download_links=download_links
             )
             
-            # Generate reports
+            # Generate reports (always overwrites local files)
             report_paths = report_gen.generate_all_reports(
-                source_files=source_files,
-                force_overwrite=False
+                source_files=source_files
             )
             
             logger.info("=" * 60)
@@ -155,10 +154,12 @@ def generate_reports_only(
     template_file: str = "data/auswertungs_template.xlsx",
     institute_id: str = None,
     berichtsjahr: int = 2026,
-    force_overwrite: bool = False,
     upload_reports: bool = False
 ) -> None:
     """Generate reports from existing check results in database.
+    
+    Local report files are always overwritten if they exist.
+    SharePoint uploads skip if file already exists by default.
 
     Args:
         verbose: If True, enable verbose logging
@@ -167,7 +168,6 @@ def generate_reports_only(
         template_file: Path to template file
         institute_id: Optional specific institute to generate report for
         berichtsjahr: Reporting year for sourcing files (required)
-        force_overwrite: If True, overwrite existing reports
         upload_reports: If True, upload reports to SharePoint (default: False)
     """
     setup_logging(verbose)
@@ -202,14 +202,13 @@ def generate_reports_only(
             download_links=download_links
         )
         
-        # Generate reports
+        # Generate reports (always overwrites local files)
         if institute_id:
             logger.info(f"Generating report for institute: {institute_id}")
             source_path = source_files.get(institute_id)
             report_path = report_gen.generate_report(
                 institute_id=institute_id,
-                source_file_path=source_path,
-                force_overwrite=force_overwrite
+                source_file_path=source_path
             )
             if report_path:
                 logger.info(f"Report generated: {report_path}")
@@ -218,8 +217,7 @@ def generate_reports_only(
         else:
             logger.info("Generating reports for all institutes")
             report_paths = report_gen.generate_all_reports(
-                source_files=source_files,
-                force_overwrite=force_overwrite
+                source_files=source_files
             )
             logger.info(f"Generated {len(report_paths)} reports")
         
@@ -290,11 +288,6 @@ def main():
         help="Generate report for specific institute only (use with --reports-only)",
     )
     parser.add_argument(
-        "--force-overwrite",
-        action="store_true",
-        help="Overwrite existing report files (use with --reports-only)",
-    )
-    parser.add_argument(
         "--upload",
         action="store_true",
         help="Upload generated reports to SharePoint (disabled by default)",
@@ -314,7 +307,6 @@ def main():
             template_file=args.template,
             institute_id=args.institute,
             berichtsjahr=args.berichtsjahr,
-            force_overwrite=args.force_overwrite,
             upload_reports=upload_enabled,
         )
     else:
