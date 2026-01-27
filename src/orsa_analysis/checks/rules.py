@@ -182,8 +182,15 @@ def check_data_recency_szenarien(wb: Workbook) -> Tuple[bool, str, str]:
 
 
 def check_board_approved_orsa(wb: Workbook) -> Tuple[bool, str, str]:
+    # Check if this is a Zweigniederlassungs version
+    if _is_zweigniederlassungs_version(wb):
+        return False, "kein Rating", "Kein Rating da es sich um eine Zweigniederlassung handelt"
+    
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Allgem. Angaben")
+    
+    if sheet is None:
+        return False, STR_UNGENUEGEND, "Sheet 'Allgem. Angaben' not found in workbook"
 
     value_who_approved = sheet["C18"].value or ""
     is_approved_through_board = value_who_approved in {
@@ -612,8 +619,34 @@ def _is_any_filled(sheet, cells: list[str]) -> bool:
     return False
 
 
+def _is_zweigniederlassungs_version(wb: Workbook) -> bool:
+    """Detect if this is a Zweigniederlassungs version of the Excel file.
+    
+    The zweigniederlassungs_version has the sheet 'Ergebnisse' (and language equivalents),
+    whereas the standard version has 'Ergebnisse_IFRS' and 'Ergebnisse_AVO-FINMA'.
+    
+    Args:
+        wb: Workbook to check
+        
+    Returns:
+        True if this is a Zweigniederlassungs version, False otherwise
+    """
+    mapper = SheetNameMapper(wb)
+    return mapper.has_sheet("Ergebnisse")
+
+
 def _get_filled_results_sheet(wb: Workbook) -> Tuple[bool, str, str, object]:
     mapper = SheetNameMapper(wb)
+    
+    # Check if this is a Zweigniederlassungs version
+    if _is_zweigniederlassungs_version(wb):
+        sheet_ergebnisse = mapper.get_sheet("Ergebnisse")
+        if sheet_ergebnisse is None:
+            msg = "Error: Ergebnisse sheet not found in Zweigniederlassungs version"
+            return False, msg, msg, None
+        return True, "OK", "OK", sheet_ergebnisse
+    
+    # Standard version logic
     sheet_avo = mapper.get_sheet("Ergebnisse_AVO-FINMA")
     sheet_ifrs = mapper.get_sheet("Ergebnisse_IFRS")
 
@@ -646,9 +679,15 @@ def check_business_planning_filled_three_years(wb: Workbook) -> Tuple[bool, str,
     if not ok:
         return False, outcome_str, details_str
 
+    # Check if Zweigniederlassungs version (by checking if sheet name contains "Ergebnisse" without suffix)
+    is_zweigniederlassung = "Ergebnisse_" not in sheet.title and "Ergebnisse" in sheet.title
     is_avo = sheet.title == "Ergebnisse_AVO-FINMA"
 
-    if is_avo:
+    if is_zweigniederlassung:
+        # Zweigniederlassungs version: E10-G20 and E23-E30
+        ok_1 = _range_has_no_empty_cells(sheet, "E", "G", 10, 20)
+        ok_2 = _range_has_no_empty_cells(sheet, "E", "E", 23, 30)
+    elif is_avo:
         ok_1 = _range_has_no_empty_cells(sheet, "E", "G", 11, 21)
         ok_2 = _range_has_no_empty_cells(sheet, "E", "G", 24, 35)
     else:
@@ -662,6 +701,10 @@ def check_business_planning_filled_three_years(wb: Workbook) -> Tuple[bool, str,
 
 
 def check_sst_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
+    # Check if this is a Zweigniederlassungs version
+    if _is_zweigniederlassungs_version(wb):
+        return False, "Kein Rating", "Kein Rating da es sich um eine Zweigniederlassung handelt"
+    
     ok, outcome_str, details_str, sheet = _get_filled_results_sheet(wb)
     if not ok:
         return False, outcome_str, details_str
@@ -683,9 +726,14 @@ def check_tied_assets_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
     if not ok:
         return False, outcome_str, details_str
 
+    # Check if Zweigniederlassungs version
+    is_zweigniederlassung = "Ergebnisse_" not in sheet.title and "Ergebnisse" in sheet.title
     is_avo = sheet.title == "Ergebnisse_AVO-FINMA"
 
-    if is_avo:
+    if is_zweigniederlassung:
+        # Zweigniederlassungs version: E38 to G40
+        ok = _range_has_no_empty_cells(sheet, "E", "G", 38, 40)
+    elif is_avo:
         ok = _range_has_no_empty_cells(sheet, "E", "G", 49, 51)
     else:
         ok = _range_has_no_empty_cells(sheet, "E", "G", 51, 54)
@@ -699,9 +747,14 @@ def check_provisions_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
     if not ok:
         return False, outcome_str, details_str
 
+    # Check if Zweigniederlassungs version
+    is_zweigniederlassung = "Ergebnisse_" not in sheet.title and "Ergebnisse" in sheet.title
     is_avo = sheet.title == "Ergebnisse_AVO-FINMA"
 
-    if is_avo:
+    if is_zweigniederlassung:
+        # Zweigniederlassungs version: E60 to G60
+        ok_range = _range_has_no_empty_cells(sheet, "E", "G", 60, 60)
+    elif is_avo:
         ok_range = _range_has_no_empty_cells(sheet, "E", "G", 71, 71)
     else:
         ok_range = _range_has_no_empty_cells(sheet, "E", "G", 73, 73)
@@ -716,31 +769,50 @@ def check_other_perspective_filled_three_years(wb: Workbook) -> Tuple[bool, str,
     if not ok:
         return False, outcome_str, details_str
 
+    # Check if Zweigniederlassungs version
+    is_zweigniederlassung = "Ergebnisse_" not in sheet.title and "Ergebnisse" in sheet.title
     is_avo = sheet.title == "Ergebnisse_AVO-FINMA"
-    shift = 0 if is_avo else 2
 
-    row_ranges = [
-        (74, 74),
-        (77, 77),
-        (82, 84),
-        (86, 86),
-        (89, 89),
-        (93, 93),
-        (97, 97),
-    ]
+    if is_zweigniederlassung:
+        # Zweigniederlassungs version: E63 to G63, E66 to G66, E69 to G69
+        row_ranges = [(63, 63), (66, 66), (69, 69)]
+    else:
+        shift = 0 if is_avo else 2
+        row_ranges = [
+            (74, 74),
+            (77, 77),
+            (82, 84),
+            (86, 86),
+            (89, 89),
+            (93, 93),
+            (97, 97),
+        ]
 
     for r1, r2 in row_ranges:
-        for row in range(r1 + shift, r2 + shift + 1):
-            e_val = sheet[f"E{row}"].value
-            f_val = sheet[f"F{row}"].value
-            g_val = sheet[f"G{row}"].value
+        if is_zweigniederlassung:
+            for row in range(r1, r2 + 1):
+                e_val = sheet[f"E{row}"].value
+                f_val = sheet[f"F{row}"].value
+                g_val = sheet[f"G{row}"].value
 
-            e_filled = e_val is not None and str(e_val).strip() != ""
-            f_filled = f_val is not None and str(f_val).strip() != ""
-            g_filled = g_val is not None and str(g_val).strip() != ""
+                e_filled = e_val is not None and str(e_val).strip() != ""
+                f_filled = f_val is not None and str(f_val).strip() != ""
+                g_filled = g_val is not None and str(g_val).strip() != ""
 
-            if e_filled and not (f_filled and g_filled):
-                return False, "Prüfen", "Other perspective is partially filled (E filled but F/G missing)"
+                if e_filled and not (f_filled and g_filled):
+                    return False, "Prüfen", "Other perspective is partially filled (E filled but F/G missing)"
+        else:
+            for row in range(r1 + shift, r2 + shift + 1):
+                e_val = sheet[f"E{row}"].value
+                f_val = sheet[f"F{row}"].value
+                g_val = sheet[f"G{row}"].value
+
+                e_filled = e_val is not None and str(e_val).strip() != ""
+                f_filled = f_val is not None and str(f_val).strip() != ""
+                g_filled = g_val is not None and str(g_val).strip() != ""
+
+                if e_filled and not (f_filled and g_filled):
+                    return False, "Prüfen", "Other perspective is partially filled (E filled but F/G missing)"
 
     return True, "OK", "Other perspective is consistently filled (rows are either empty or fully filled)"
 
@@ -771,6 +843,8 @@ def check_scenarios_business_planning_filled_three_years(wb: Workbook) -> Tuple[
     mapper = SheetNameMapper(wb)
     szenarien_sheet = mapper.get_sheet("Szenarien")
 
+    # Check if Zweigniederlassungs version
+    is_zweigniederlassung = "Ergebnisse_" not in results_sheet.title and "Ergebnisse" in results_sheet.title
     is_avo = results_sheet.title == "Ergebnisse_AVO-FINMA"
 
     for i, type_addr in enumerate(_scenario_type_cells()):
@@ -779,7 +853,11 @@ def check_scenarios_business_planning_filled_three_years(wb: Workbook) -> Tuple[
 
         start_col, end_col = _scenario_cols(i)
 
-        if is_avo:
+        if is_zweigniederlassung:
+            # Zweigniederlassungs version: K10-M20 and K23 to M30
+            ok_1 = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, 10, 20)
+            ok_2 = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, 23, 30)
+        elif is_avo:
             ok_1 = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, 11, 21)
             ok_2 = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, 24, 35)
         else:
@@ -793,6 +871,10 @@ def check_scenarios_business_planning_filled_three_years(wb: Workbook) -> Tuple[
 
 
 def check_scenarios_sst_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
+    # Check if this is a Zweigniederlassungs version
+    if _is_zweigniederlassungs_version(wb):
+        return False, "Kein Rating", "Kein Rating da es sich um eine Zweigniederlassung handelt"
+    
     ok, outcome_str, details_str, results_sheet = _get_filled_results_sheet(wb)
     if not ok:
         return False, outcome_str, details_str
@@ -827,6 +909,8 @@ def check_scenarios_tied_assets_filled_three_years(wb: Workbook) -> Tuple[bool, 
     mapper = SheetNameMapper(wb)
     szenarien_sheet = mapper.get_sheet("Szenarien")
 
+    # Check if Zweigniederlassungs version
+    is_zweigniederlassung = "Ergebnisse_" not in results_sheet.title and "Ergebnisse" in results_sheet.title
     is_avo = results_sheet.title == "Ergebnisse_AVO-FINMA"
 
     for i, type_addr in enumerate(_scenario_type_cells()):
@@ -835,7 +919,10 @@ def check_scenarios_tied_assets_filled_three_years(wb: Workbook) -> Tuple[bool, 
 
         start_col, end_col = _scenario_cols(i)
 
-        if is_avo:
+        if is_zweigniederlassung:
+            # Zweigniederlassungs version: K38 to M40
+            ok_range = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, 38, 40)
+        elif is_avo:
             ok_range = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, 49, 51)
         else:
             ok_range = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, 51, 54)
@@ -854,8 +941,14 @@ def check_scenarios_provisions_filled_three_years(wb: Workbook) -> Tuple[bool, s
     mapper = SheetNameMapper(wb)
     szenarien_sheet = mapper.get_sheet("Szenarien")
 
+    # Check if Zweigniederlassungs version
+    is_zweigniederlassung = "Ergebnisse_" not in results_sheet.title and "Ergebnisse" in results_sheet.title
     is_avo = results_sheet.title == "Ergebnisse_AVO-FINMA"
-    row = 71 if is_avo else 73
+    
+    if is_zweigniederlassung:
+        row = 60
+    else:
+        row = 71 if is_avo else 73
 
     for i, type_addr in enumerate(_scenario_type_cells()):
         if (szenarien_sheet[type_addr].value or "") == "":
@@ -878,18 +971,25 @@ def check_scenarios_other_perspective_filled_three_years(wb: Workbook) -> Tuple[
     mapper = SheetNameMapper(wb)
     szenarien_sheet = mapper.get_sheet("Szenarien")
 
+    # Check if Zweigniederlassungs version
+    is_zweigniederlassung = "Ergebnisse_" not in results_sheet.title and "Ergebnisse" in results_sheet.title
     is_avo = results_sheet.title == "Ergebnisse_AVO-FINMA"
-    shift = 0 if is_avo else 2
 
-    row_ranges = [
-        (74, 74),
-        (77, 77),
-        (82, 84),
-        (86, 86),
-        (89, 89),
-        (93, 93),
-        (97, 97),
-    ]
+    if is_zweigniederlassung:
+        # Zweigniederlassungs version: K63 to M63, K66 to M66, K69 to M69
+        row_ranges = [(63, 63), (66, 66), (69, 69)]
+        shift = 0
+    else:
+        shift = 0 if is_avo else 2
+        row_ranges = [
+            (74, 74),
+            (77, 77),
+            (82, 84),
+            (86, 86),
+            (89, 89),
+            (93, 93),
+            (97, 97),
+        ]
 
     for i, type_addr in enumerate(_scenario_type_cells()):
         if (szenarien_sheet[type_addr].value or "") == "":
@@ -916,6 +1016,10 @@ def check_scenarios_other_perspective_filled_three_years(wb: Workbook) -> Tuple[
 ###### Qual. & langfr. Risiken
 
 def check_count_longterm_risks(wb: Workbook) -> Tuple[bool, str, str]:
+    # Check if this is a Zweigniederlassungs version
+    if _is_zweigniederlassungs_version(wb):
+        return False, "Kein Rating", "Kein Rating da es sich um eine Zweigniederlassung handelt"
+    
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Qual. & langfr. Risiken")
 
@@ -928,6 +1032,10 @@ def check_count_longterm_risks(wb: Workbook) -> Tuple[bool, str, str]:
     return True, count_str, count_str
 
 def check_treatment_of_qual_risks(wb: Workbook) -> Tuple[bool, str, str]:
+    # Check if this is a Zweigniederlassungs version
+    if _is_zweigniederlassungs_version(wb):
+        return False, "Kein Rating", "Kein Rating da es sich um eine Zweigniederlassung handelt"
+    
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Qual. & langfr. Risiken")
 
