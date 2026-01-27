@@ -33,16 +33,16 @@ def check_responsible_person(wb: Workbook) -> Tuple[bool, str, str]:
         sheet = mapper.get_sheet("Allgem. Angaben")
 
         if sheet is None:
-            return False, "NA", "Sheet 'Allgem. Angaben' not found in workbook"
+            return False, "NA", "Das Tabellenblatt 'Allgem. Angaben' wurde in der Arbeitsmappe nicht gefunden"
 
         value = sheet["C8"].value
         value = "" if value is None else str(value)
 
-        return True, value, f"responsible person: {value}"
+        return True, value, f"Verantwortliche Person aus Zelle C8: {value}" if value else "Keine verantwortliche Person in Zelle C8 angegeben"
 
     except Exception as e:
         logger.error(f"Error in check_responsible_person: {e}")
-        return False, "NA", f"Check failed with error: {str(e)}"
+        return False, "NA", f"Prüfung fehlgeschlagen mit Fehler: {str(e)}"
 
 
 def _to_date(v) -> Optional[date]:
@@ -76,7 +76,7 @@ def check_data_recency_geschaeftsplanung(wb: Workbook) -> Tuple[bool, str, str]:
             return (
                 False,
                 STR_UNGENUEGEND,
-                "Sheet 'Allgem. Angaben' not found in workbook",
+                "Das Tabellenblatt 'Allgem. Angaben' wurde in der Arbeitsmappe nicht gefunden",
             )
 
         approved = _to_date(sheet["C17"].value)
@@ -86,21 +86,24 @@ def check_data_recency_geschaeftsplanung(wb: Workbook) -> Tuple[bool, str, str]:
             return (
                 False,
                 STR_UNGENUEGEND,
-                "Approval through board date (C17) is missing/invalid",
+                "Genehmigungsdatum durch Verwaltungsrat (C17) fehlt oder ist ungültig",
             )
         if snapshot is None:
-            return False, STR_UNGENUEGEND, "Snapshot date (C14) is missing/invalid"
+            return False, STR_UNGENUEGEND, "Stichtagsdatum der Geschäftsplanung (C14) fehlt oder ist ungültig"
         if approved < snapshot:
-            return False, STR_UNGENUEGEND, "Approval date is before snapshot date"
+            return False, STR_UNGENUEGEND, "Genehmigungsdatum liegt vor dem Stichtagsdatum (unlogisch)"
 
         months = _months_diff(snapshot, approved)
         ok = months <= 6
 
-        return ok, STR_GUT if ok else STR_UNGENUEGEND, f"Data recency: {months} months"
+        if ok:
+            return True, STR_GUT, f"Aktualität der Daten für Geschäftsplanung ist ausreichend: {months} Monate zwischen Stichtag und Genehmigung (≤6 Monate erforderlich)"
+        else:
+            return False, STR_UNGENUEGEND, f"Aktualität der Daten für Geschäftsplanung ist ungenügend: {months} Monate zwischen Stichtag und Genehmigung (max. 6 Monate erlaubt)"
 
     except Exception as e:
         logger.error(f"Error in check_data_recency_geschaeftsplanung: {e}")
-        return False, STR_UNGENUEGEND, f"Check failed with error: {str(e)}"
+        return False, STR_UNGENUEGEND, f"Prüfung fehlgeschlagen mit Fehler: {str(e)}"
 
 
 def check_data_recency_risikoidentifikation(wb: Workbook) -> Tuple[bool, str, str]:
@@ -115,7 +118,7 @@ def check_data_recency_risikoidentifikation(wb: Workbook) -> Tuple[bool, str, st
             return (
                 False,
                 STR_UNGENUEGEND,
-                "Sheet 'Allgem. Angaben' not found in workbook",
+                "Das Tabellenblatt 'Allgem. Angaben' wurde in der Arbeitsmappe nicht gefunden",
             )
 
         approved = _to_date(sheet["C17"].value)
@@ -125,21 +128,24 @@ def check_data_recency_risikoidentifikation(wb: Workbook) -> Tuple[bool, str, st
             return (
                 False,
                 STR_UNGENUEGEND,
-                "Approval through board date (C17) is missing/invalid",
+                "Genehmigungsdatum durch Verwaltungsrat (C17) fehlt oder ist ungültig",
             )
         if snapshot is None:
-            return False, STR_UNGENUEGEND, "Snapshot date (C15) is missing/invalid"
+            return False, STR_UNGENUEGEND, "Stichtagsdatum der Risikoidentifikation (C15) fehlt oder ist ungültig"
         if approved < snapshot:
-            return False, STR_UNGENUEGEND, "Approval date is before snapshot date"
+            return False, STR_UNGENUEGEND, "Genehmigungsdatum liegt vor dem Stichtagsdatum (unlogisch)"
 
         months = _months_diff(snapshot, approved)
         ok = months <= 6
 
-        return ok, STR_GUT if ok else STR_UNGENUEGEND, f"Data recency: {months} months"
+        if ok:
+            return True, STR_GUT, f"Aktualität der Daten für Risikoidentifikation ist ausreichend: {months} Monate zwischen Stichtag und Genehmigung (≤6 Monate erforderlich)"
+        else:
+            return False, STR_UNGENUEGEND, f"Aktualität der Daten für Risikoidentifikation ist ungenügend: {months} Monate zwischen Stichtag und Genehmigung (max. 6 Monate erlaubt)"
 
     except Exception as e:
         logger.error(f"Error in check_data_recency_risikoidentifikation: {e}")
-        return False, STR_UNGENUEGEND, f"Check failed with error: {str(e)}"
+        return False, STR_UNGENUEGEND, f"Prüfung fehlgeschlagen mit Fehler: {str(e)}"
 
 
 def check_data_recency_szenarien(wb: Workbook) -> Tuple[bool, str, str]:
@@ -154,7 +160,7 @@ def check_data_recency_szenarien(wb: Workbook) -> Tuple[bool, str, str]:
             return (
                 False,
                 STR_UNGENUEGEND,
-                "Sheet 'Allgem. Angaben' not found in workbook",
+                "Das Tabellenblatt 'Allgem. Angaben' wurde in der Arbeitsmappe nicht gefunden",
             )
 
         approved = _to_date(sheet["C17"].value)
@@ -164,21 +170,24 @@ def check_data_recency_szenarien(wb: Workbook) -> Tuple[bool, str, str]:
             return (
                 False,
                 STR_UNGENUEGEND,
-                "Approval through board date (C17) is missing/invalid",
+                "Genehmigungsdatum durch Verwaltungsrat (C17) fehlt oder ist ungültig",
             )
         if snapshot is None:
-            return False, STR_UNGENUEGEND, "Snapshot date (C16) is missing/invalid"
+            return False, STR_UNGENUEGEND, "Stichtagsdatum der Szenarien (C16) fehlt oder ist ungültig"
         if approved < snapshot:
-            return False, STR_UNGENUEGEND, "Approval date is before snapshot date"
+            return False, STR_UNGENUEGEND, "Genehmigungsdatum liegt vor dem Stichtagsdatum (unlogisch)"
 
         months = _months_diff(snapshot, approved)
         ok = months <= 6
 
-        return ok, STR_GUT if ok else STR_UNGENUEGEND, f"Data recency: {months} months"
+        if ok:
+            return True, STR_GUT, f"Aktualität der Daten für Szenarien ist ausreichend: {months} Monate zwischen Stichtag und Genehmigung (≤6 Monate erforderlich)"
+        else:
+            return False, STR_UNGENUEGEND, f"Aktualität der Daten für Szenarien ist ungenügend: {months} Monate zwischen Stichtag und Genehmigung (max. 6 Monate erlaubt)"
 
     except Exception as e:
         logger.error(f"Error in check_data_recency_szenarien: {e}")
-        return False, STR_UNGENUEGEND, f"Check failed with error: {str(e)}"
+        return False, STR_UNGENUEGEND, f"Prüfung fehlgeschlagen mit Fehler: {str(e)}"
 
 
 def check_board_approved_orsa(wb: Workbook) -> Tuple[bool, str, str]:
@@ -190,7 +199,7 @@ def check_board_approved_orsa(wb: Workbook) -> Tuple[bool, str, str]:
     sheet = mapper.get_sheet("Allgem. Angaben")
     
     if sheet is None:
-        return False, STR_UNGENUEGEND, "Sheet 'Allgem. Angaben' not found in workbook"
+        return False, STR_UNGENUEGEND, "Das Tabellenblatt 'Allgem. Angaben' wurde in der Arbeitsmappe nicht gefunden"
 
     value_who_approved = sheet["C18"].value or ""
     is_approved_through_board = value_who_approved in {
@@ -198,37 +207,47 @@ def check_board_approved_orsa(wb: Workbook) -> Tuple[bool, str, str]:
         "(2) ein VR-Ausschuss",
     }
 
-    return (
-        is_approved_through_board,
-        STR_GUT if is_approved_through_board else STR_UNGENUEGEND,
-        value_who_approved,
-    )
+    if is_approved_through_board:
+        return True, STR_GUT, f"ORSA wurde durch den Verwaltungsrat genehmigt: {value_who_approved}"
+    else:
+        return False, STR_UNGENUEGEND, f"ORSA wurde nicht durch den Verwaltungsrat genehmigt. Gefundener Wert in C18: '{value_who_approved}' (erwartet: '(1) gesamter VR' oder '(2) ein VR-Ausschuss')"
 
 ## Risiken
 
 def check_risikobeurteilung_method(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Risiken")
+    
+    if sheet is None:
+        return False, "Prüfen", "Das Tabellenblatt 'Risiken' wurde in der Arbeitsmappe nicht gefunden"
 
     value_method = sheet["E7"].value or ""
 
     if value_method.startswith("(1)"):
         result_str = "gut"
+        desc = f"Risikobeurteilungsmethode ist gut: {value_method}"
     elif value_method.startswith("(2)"):
         result_str = "mangelhaft"
+        desc = f"Risikobeurteilungsmethode ist mangelhaft: {value_method}"
     elif value_method.startswith("(3)"):
         result_str = "ungenügend"
+        desc = f"Risikobeurteilungsmethode ist ungenügend: {value_method}"
     elif value_method.startswith("(4)"):
         result_str = "kein Rating"
+        desc = f"Kein Rating für Risikobeurteilungsmethode: {value_method}"
     else:
         result_str = ""
+        desc = f"Ungültiger oder fehlender Wert für Risikobeurteilungsmethode in Zelle E7: '{value_method}'"
 
-    return result_str == "gut", result_str, value_method
+    return result_str == "gut", result_str, desc
 
 
 def check_risk_criteria_sufficient(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Risiken")
+    
+    if sheet is None:
+        return False, "nicht ausreichend", "Das Tabellenblatt 'Risiken' wurde in der Arbeitsmappe nicht gefunden"
 
     required = {"(1)", "(2)", "(3)", "(4)", "(5)"}
     found = set()
@@ -241,13 +260,20 @@ def check_risk_criteria_sufficient(wb: Workbook) -> Tuple[bool, str, str]:
 
     is_ok = required.issubset(found)
     result_str = "ausreichend" if is_ok else "nicht ausreichend"
-
-    return is_ok, result_str, ", ".join(sorted(found))
+    
+    if is_ok:
+        return True, result_str, f"Alle erforderlichen Risikokriterien (1-5) sind vorhanden: {', '.join(sorted(found))}"
+    else:
+        missing = sorted(required - found)
+        return False, result_str, f"Risikokriterien sind nicht ausreichend. Gefunden: {', '.join(sorted(found)) if found else 'keine'}. Fehlend: {', '.join(missing)}"
 
 
 def _count_risk(wb: Workbook, prefix: str) -> str:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Risiken")
+    
+    if sheet is None:
+        return "0"
 
     count = 0
     for row in range(22, 52):
@@ -260,43 +286,46 @@ def _count_risk(wb: Workbook, prefix: str) -> str:
 
 def check_finanzmarktrisiko_count(wb: Workbook) -> Tuple[bool, str, str]:
     count_str = _count_risk(wb, "(1)")
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl identifizierter Finanzmarktrisiken: {count_str}"
 
 
 def check_versicherungsrisiko_count(wb: Workbook) -> Tuple[bool, str, str]:
     count_str = _count_risk(wb, "(2)")
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl identifizierter Versicherungsrisiken: {count_str}"
 
 
 def check_kreditrisiko_count(wb: Workbook) -> Tuple[bool, str, str]:
     count_str = _count_risk(wb, "(3)")
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl identifizierter Kreditrisiken: {count_str}"
 
 
 def check_liquiditaetsrisiko_count(wb: Workbook) -> Tuple[bool, str, str]:
     count_str = _count_risk(wb, "(4)")
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl identifizierter Liquiditätsrisiken: {count_str}"
 
 
 def check_operationelles_risiko_count(wb: Workbook) -> Tuple[bool, str, str]:
     count_str = _count_risk(wb, "(5)")
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl identifizierter operationeller Risiken: {count_str}"
 
 
 def check_strategisches_umfeld_risiko_count(wb: Workbook) -> Tuple[bool, str, str]:
     count_str = _count_risk(wb, "(6)")
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl identifizierter strategischer/Umfeld-Risiken: {count_str}"
 
 
 def check_anderes_risiko_count(wb: Workbook) -> Tuple[bool, str, str]:
     count_str = _count_risk(wb, "(7)")
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl identifizierter anderer Risiken: {count_str}"
 
 ## Massnahmen
 
 def check_count_number_mitigating_measures(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Massnahmen")
+    
+    if sheet is None:
+        return True, "0", "Anzahl risikobegrenzender Massnahmen: 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
 
     count = 0
     for row in range(9, 31):
@@ -304,7 +333,7 @@ def check_count_number_mitigating_measures(wb: Workbook) -> Tuple[bool, str, str
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl risikobegrenzender Massnahmen: {count_str}"
 
 
 def check_count_number_potential_mitigating_measures(
@@ -312,6 +341,9 @@ def check_count_number_potential_mitigating_measures(
 ) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Massnahmen")
+    
+    if sheet is None:
+        return True, "0", "Anzahl potenzieller risikobegrenzender Massnahmen: 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
 
     count = 0
     for row in range(9, 39):
@@ -319,12 +351,15 @@ def check_count_number_potential_mitigating_measures(
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl potenzieller risikobegrenzender Massnahmen: {count_str}"
 
 
 def check_count_other_measures(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Massnahmen")
+    
+    if sheet is None:
+        return True, "0", "Anzahl sonstiger Massnahmen: 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
 
     count = 0
     for row in range(44, 54):
@@ -332,12 +367,15 @@ def check_count_other_measures(wb: Workbook) -> Tuple[bool, str, str]:
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl sonstiger Massnahmen: {count_str}"
 
 
 def check_count_potential_other_measures(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Massnahmen")
+    
+    if sheet is None:
+        return True, "0", "Anzahl potenzieller sonstiger Massnahmen: 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
 
     count = 0
     for row in range(57, 67):
@@ -345,13 +383,16 @@ def check_count_potential_other_measures(wb: Workbook) -> Tuple[bool, str, str]:
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl potenzieller sonstiger Massnahmen: {count_str}"
 
 
 def check_risks_are_all_mitigated(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet_risiken = mapper.get_sheet("Risiken")
     sheet_massnahmen = mapper.get_sheet("Massnahmen")
+    
+    if sheet_risiken is None or sheet_massnahmen is None:
+        return False, "NOK", "Tabellenblatt 'Risiken' oder 'Massnahmen' nicht gefunden"
 
     required_ids = set()
     for row in range(22, 52):
@@ -373,15 +414,18 @@ def check_risks_are_all_mitigated(wb: Workbook) -> Tuple[bool, str, str]:
     missing = sorted(required_ids - mitigated_ids, key=int)
 
     if not missing:
-        return True, "OK", "Jedes Risiko hat eine Massnahme"
+        return True, "OK", f"Alle {len(required_ids)} identifizierten Risiken haben mindestens eine zugeordnete Massnahme"
 
     not_mitigated = ", ".join(missing)
-    return False, "NOK", f"Risiko {not_mitigated} hat keine Massnahme"
+    return False, "NOK", f"Risiken ohne zugeordnete Massnahmen (IDs): {not_mitigated}. Bitte Massnahmen für diese Risiken ergänzen."
 
 
 def check_any_nonmitigating_measures(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Massnahmen")
+    
+    if sheet is None:
+        return True, "OK", "Tabellenblatt 'Massnahmen' nicht gefunden - keine nicht risikobegrenzenden Massnahmen vorhanden"
 
     count = 0
     for row in range(9, 39):
@@ -393,7 +437,10 @@ def check_any_nonmitigating_measures(wb: Workbook) -> Tuple[bool, str, str]:
     is_ok = count == 0
     outcome_str = "OK" if is_ok else "NOK"
 
-    return is_ok, outcome_str, count_str
+    if is_ok:
+        return True, outcome_str, "Alle Massnahmen sind risikobegrenzend (keine mit Kategorie (5) 'Nicht risikobegrenzende Massnahme' gefunden)"
+    else:
+        return False, outcome_str, f"Anzahl nicht risikobegrenzender Massnahmen (Kategorie (5)): {count_str}. Diese Massnahmen sollten überprüft werden."
 
 
 #### Szenarien
@@ -420,6 +467,9 @@ def _scenario_type_cells() -> list[str]:
 def check_count_all_scenarios(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Szenarien")
+    
+    if sheet is None:
+        return True, "0", "Anzahl aller definierten Szenarien: 0 (Tabellenblatt 'Szenarien' nicht gefunden)"
 
     count = 0
     for addr in _scenario_type_cells():
@@ -427,12 +477,15 @@ def check_count_all_scenarios(wb: Workbook) -> Tuple[bool, str, str]:
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl aller definierten Szenarien: {count_str}"
 
 
 def check_count_advers_scenarios(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Szenarien")
+    
+    if sheet is None:
+        return True, "0", "Anzahl adverser Szenarien (Typ (1)): 0 (Tabellenblatt 'Szenarien' nicht gefunden)"
 
     count = 0
     for addr in _scenario_type_cells():
@@ -441,12 +494,15 @@ def check_count_advers_scenarios(wb: Workbook) -> Tuple[bool, str, str]:
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl adverser Szenarien (Typ (1)): {count_str}"
 
 
 def check_count_existenzbedrohend_scenarios(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Szenarien")
+    
+    if sheet is None:
+        return True, "0", "Anzahl existenzbedrohender Szenarien (Typ (2)): 0 (Tabellenblatt 'Szenarien' nicht gefunden)"
 
     count = 0
     for addr in _scenario_type_cells():
@@ -455,12 +511,15 @@ def check_count_existenzbedrohend_scenarios(wb: Workbook) -> Tuple[bool, str, st
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl existenzbedrohender Szenarien (Typ (2)): {count_str}"
 
 
 def check_count_other_scenarios(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Szenarien")
+    
+    if sheet is None:
+        return True, "0", "Anzahl sonstiger Szenarien (Typ (3)): 0 (Tabellenblatt 'Szenarien' nicht gefunden)"
 
     count = 0
     for addr in _scenario_type_cells():
@@ -469,11 +528,14 @@ def check_count_other_scenarios(wb: Workbook) -> Tuple[bool, str, str]:
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl sonstiger Szenarien (Typ (3)): {count_str}"
 
 def check_every_scenario_has_event(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Szenarien")
+    
+    if sheet is None:
+        return True, "OK", "Tabellenblatt 'Szenarien' nicht gefunden"
 
     ok = True
     for i, type_addr in enumerate(_scenario_type_cells()):
@@ -493,12 +555,15 @@ def check_every_scenario_has_event(wb: Workbook) -> Tuple[bool, str, str]:
             break
 
     if ok:
-        return True, "OK", "Every scenario has at least one event"
-    return False, "NOK", "Not every scenario has at least one event"
+        return True, "OK", "Jedes definierte Szenario hat mindestens ein zugeordnetes Ereignis"
+    return False, "NOK", "Mindestens ein Szenario hat kein zugeordnetes Ereignis. Bitte Ereignisse für alle Szenarien definieren."
 
 def check_count_scenarios_only_one_event(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Szenarien")
+    
+    if sheet is None:
+        return True, "0", "Anzahl Szenarien mit genau einem Ereignis: 0 (Tabellenblatt 'Szenarien' nicht gefunden)"
 
     count = 0
     for i, type_addr in enumerate(_scenario_type_cells()):
@@ -516,11 +581,14 @@ def check_count_scenarios_only_one_event(wb: Workbook) -> Tuple[bool, str, str]:
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl Szenarien mit genau einem Ereignis: {count_str}"
 
 def check_count_scenarios_multiple_events(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Szenarien")
+    
+    if sheet is None:
+        return True, "0", "Anzahl Szenarien mit mehreren Ereignissen: 0 (Tabellenblatt 'Szenarien' nicht gefunden)"
 
     count = 0
     for i, type_addr in enumerate(_scenario_type_cells()):
@@ -538,11 +606,14 @@ def check_count_scenarios_multiple_events(wb: Workbook) -> Tuple[bool, str, str]
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl Szenarien mit mehreren Ereignissen: {count_str}"
 
 def check_every_scenario_has_risk(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Szenarien")
+    
+    if sheet is None:
+        return True, "OK", "Tabellenblatt 'Szenarien' nicht gefunden"
 
     ok = True
     for i, type_addr in enumerate(_scenario_type_cells()):
@@ -562,12 +633,15 @@ def check_every_scenario_has_risk(wb: Workbook) -> Tuple[bool, str, str]:
             break
 
     if ok:
-        return True, "OK", "Every scenario has at least one risk"
-    return False, "NOK", "Not every scenario has at least one risk"
+        return True, "OK", "Jedes definierte Szenario hat mindestens ein zugeordnetes Risiko"
+    return False, "NOK", "Mindestens ein Szenario hat kein zugeordnetes Risiko. Bitte Risiken für alle Szenarien definieren."
 
 def check_count_scenarios_only_one_risk(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Szenarien")
+    
+    if sheet is None:
+        return True, "0", "Anzahl Szenarien mit genau einem Risiko: 0 (Tabellenblatt 'Szenarien' nicht gefunden)"
 
     count = 0
     for i, type_addr in enumerate(_scenario_type_cells()):
@@ -585,11 +659,14 @@ def check_count_scenarios_only_one_risk(wb: Workbook) -> Tuple[bool, str, str]:
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl Szenarien mit genau einem Risiko: {count_str}"
 
 def check_count_scenrios_multiple_risks(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Szenarien")
+    
+    if sheet is None:
+        return True, "0", "Anzahl Szenarien mit mehreren Risiken: 0 (Tabellenblatt 'Szenarien' nicht gefunden)"
 
     count = 0
     for i, type_addr in enumerate(_scenario_type_cells()):
@@ -607,11 +684,13 @@ def check_count_scenrios_multiple_risks(wb: Workbook) -> Tuple[bool, str, str]:
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl Szenarien mit mehreren Risiken: {count_str}"
 
 ### Resultate AVO-FINMA / IFRS
 
 def _is_any_filled(sheet, cells: list[str]) -> bool:
+    if sheet is None:
+        return False
     for addr in cells:
         v = sheet[addr].value
         if v is not None and str(v).strip() != "":
@@ -705,9 +784,9 @@ def check_business_planning_filled_three_years(wb: Workbook) -> Tuple[bool, str,
         ok_2 = _range_has_no_empty_cells(sheet, "E", "G", 26, 38)
 
     if ok_1 and ok_2:
-        return True, "OK", "Business planning is filled for three years"
+        return True, "OK", "Geschäftsplanung ist vollständig für drei Jahre ausgefüllt"
 
-    return False, "Prüfen", "Business planning is not fully filled for three years"
+    return False, "Prüfen", "Geschäftsplanung ist nicht vollständig für drei Jahre ausgefüllt. Bitte alle erforderlichen Zellen prüfen und ergänzen."
 
 
 def check_sst_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
@@ -727,9 +806,9 @@ def check_sst_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
         ok = _range_has_no_empty_cells(sheet, "E", "G", 44, 47)
 
     if ok:
-        return True, "OK", "SST is filled for three years"
+        return True, "OK", "SST-Daten sind vollständig für drei Jahre ausgefüllt"
 
-    return False, "Prüfen", "SST is not fully filled for three years"
+    return False, "Prüfen", "SST-Daten sind nicht vollständig für drei Jahre ausgefüllt. Bitte alle erforderlichen Zellen prüfen und ergänzen."
 
 def check_tied_assets_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
     ok, outcome_str, details_str, sheet = _get_filled_results_sheet(wb)
@@ -749,9 +828,9 @@ def check_tied_assets_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
         ok = _range_has_no_empty_cells(sheet, "E", "G", 51, 54)
 
     if ok:
-        return True, "OK", "Tied assets are filled for three years"
+        return True, "OK", "Gebundenes Vermögen ist vollständig für drei Jahre ausgefüllt"
 
-    return False, "Prüfen", "Tied assets are not fully filled for three years"
+    return False, "Prüfen", "Gebundenes Vermögen ist nicht vollständig für drei Jahre ausgefüllt. Bitte alle erforderlichen Zellen prüfen und ergänzen."
 def check_provisions_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
     ok, outcome_str, details_str, sheet = _get_filled_results_sheet(wb)
     if not ok:
@@ -770,9 +849,9 @@ def check_provisions_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
         ok_range = _range_has_no_empty_cells(sheet, "E", "G", 73, 73)
 
     if ok_range:
-        return True, "OK", "Provisions are filled for three years"
+        return True, "OK", "Rückstellungen sind vollständig für drei Jahre ausgefüllt"
 
-    return False, "Prüfen", "Provisions are not fully filled for three years"
+    return False, "Prüfen", "Rückstellungen sind nicht vollständig für drei Jahre ausgefüllt. Bitte alle erforderlichen Zellen prüfen und ergänzen."
 
 def check_other_perspective_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
     ok, outcome_str, details_str, sheet = _get_filled_results_sheet(wb)
@@ -810,7 +889,7 @@ def check_other_perspective_filled_three_years(wb: Workbook) -> Tuple[bool, str,
                 g_filled = g_val is not None and str(g_val).strip() != ""
 
                 if e_filled and not (f_filled and g_filled):
-                    return False, "Prüfen", "Other perspective is partially filled (E filled but F/G missing)"
+                    return False, "Prüfen", f"Andere Perspektive (Zeile {row}): nur teilweise ausgefüllt (Spalte E ausgefüllt, aber F und/oder G fehlen). Bitte alle drei Jahre ausfüllen oder die Zeile ganz leer lassen."
         else:
             for row in range(r1 + shift, r2 + shift + 1):
                 e_val = sheet[f"E{row}"].value
@@ -822,9 +901,9 @@ def check_other_perspective_filled_three_years(wb: Workbook) -> Tuple[bool, str,
                 g_filled = g_val is not None and str(g_val).strip() != ""
 
                 if e_filled and not (f_filled and g_filled):
-                    return False, "Prüfen", "Other perspective is partially filled (E filled but F/G missing)"
+                    return False, "Prüfen", f"Andere Perspektive (Zeile {row}): nur teilweise ausgefüllt (Spalte E ausgefüllt, aber F und/oder G fehlen). Bitte alle drei Jahre ausfüllen oder die Zeile ganz leer lassen."
 
-    return True, "OK", "Other perspective is consistently filled (rows are either empty or fully filled)"
+    return True, "OK", "Andere Perspektive ist konsistent ausgefüllt (alle Zeilen sind entweder komplett für drei Jahre ausgefüllt oder komplett leer)"
 
 
 
@@ -875,9 +954,9 @@ def check_scenarios_business_planning_filled_three_years(wb: Workbook) -> Tuple[
             ok_2 = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, 26, 38)
 
         if not (ok_1 and ok_2):
-            return False, "Prüfen", "Business planning is not fully filled for all scenarios"
+            return False, "Prüfen", f"Geschäftsplanung für Szenarien ist nicht vollständig ausgefüllt. Szenario {i+1} (Spalten {start_col}-{end_col}) hat fehlende Werte."
 
-    return True, "OK", "Business planning is filled for three years for all scenarios"
+    return True, "OK", "Geschäftsplanung für alle Szenarien ist vollständig für drei Jahre ausgefüllt"
 
 
 def check_scenarios_sst_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
@@ -906,9 +985,9 @@ def check_scenarios_sst_filled_three_years(wb: Workbook) -> Tuple[bool, str, str
             ok_range = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, 44, 47)
 
         if not ok_range:
-            return False, "Prüfen", "SST is not fully filled for all scenarios"
+            return False, "Prüfen", f"SST-Daten für Szenarien sind nicht vollständig ausgefüllt. Szenario {i+1} (Spalten {start_col}-{end_col}) hat fehlende Werte."
 
-    return True, "OK", "SST is filled for three years for all scenarios"
+    return True, "OK", "SST-Daten für alle Szenarien sind vollständig für drei Jahre ausgefüllt"
 
 
 def check_scenarios_tied_assets_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
@@ -938,9 +1017,9 @@ def check_scenarios_tied_assets_filled_three_years(wb: Workbook) -> Tuple[bool, 
             ok_range = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, 51, 54)
 
         if not ok_range:
-            return False, "Prüfen", "Tied assets are not fully filled for all scenarios"
+            return False, "Prüfen", f"Gebundenes Vermögen für Szenarien ist nicht vollständig ausgefüllt. Szenario {i+1} (Spalten {start_col}-{end_col}) hat fehlende Werte."
 
-    return True, "OK", "Tied assets are filled for three years for all scenarios"
+    return True, "OK", "Gebundenes Vermögen für alle Szenarien ist vollständig für drei Jahre ausgefüllt"
 
 
 def check_scenarios_provisions_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
@@ -968,9 +1047,9 @@ def check_scenarios_provisions_filled_three_years(wb: Workbook) -> Tuple[bool, s
         ok_range = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, row, row)
 
         if not ok_range:
-            return False, "Prüfen", "Provisions are not fully filled for all scenarios"
+            return False, "Prüfen", f"Rückstellungen für Szenarien sind nicht vollständig ausgefüllt. Szenario {i+1} (Spalten {start_col}-{end_col}) hat fehlende Werte."
 
-    return True, "OK", "Provisions are filled for three years for all scenarios"
+    return True, "OK", "Rückstellungen für alle Szenarien sind vollständig für drei Jahre ausgefüllt"
 
 
 def check_scenarios_other_perspective_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
@@ -1019,9 +1098,9 @@ def check_scenarios_other_perspective_filled_three_years(wb: Workbook) -> Tuple[
                 g_filled = g_val is not None and str(g_val).strip() != ""
 
                 if e_filled and not (f_filled and g_filled):
-                    return False, "Prüfen", "Other perspective is partially filled for at least one scenario"
+                    return False, "Prüfen", f"Andere Perspektive für Szenarien ist nur teilweise ausgefüllt. Szenario {i+1}, Zeile {row}: Spalte {c_e} ist ausgefüllt, aber {c_f} und/oder {c_g} fehlen. Bitte alle drei Jahre ausfüllen oder die Zeile ganz leer lassen."
 
-    return True, "OK", "Other perspective is consistently filled for all scenarios"
+    return True, "OK", "Andere Perspektive für alle Szenarien ist konsistent ausgefüllt (alle Zeilen sind entweder komplett für drei Jahre ausgefüllt oder komplett leer)"
 
 ###### Qual. & langfr. Risiken
 
@@ -1032,6 +1111,9 @@ def check_count_longterm_risks(wb: Workbook) -> Tuple[bool, str, str]:
     
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Qual. & langfr. Risiken")
+    
+    if sheet is None:
+        return True, "0", "Anzahl identifizierter qualitativer und langfristiger Risiken: 0 (Tabellenblatt 'Qual. & langfr. Risiken' nicht gefunden)"
 
     count = 0
     for row in range(25, 40):
@@ -1039,7 +1121,7 @@ def check_count_longterm_risks(wb: Workbook) -> Tuple[bool, str, str]:
             count += 1
 
     count_str = str(count)
-    return True, count_str, count_str
+    return True, count_str, f"Anzahl identifizierter qualitativer und langfristiger Risiken: {count_str}"
 
 def check_treatment_of_qual_risks(wb: Workbook) -> Tuple[bool, str, str]:
     # Check if this is a Zweigniederlassungs version
@@ -1048,32 +1130,45 @@ def check_treatment_of_qual_risks(wb: Workbook) -> Tuple[bool, str, str]:
     
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Qual. & langfr. Risiken")
+    
+    if sheet is None:
+        return False, "Prüfen", "Das Tabellenblatt 'Qual. & langfr. Risiken' wurde in der Arbeitsmappe nicht gefunden"
 
     value = str(sheet["E4"].value or "")
 
     ok = value.startswith("(1)") or value.startswith("(2)") or value.startswith("(3)")
     outcome_str = "OK" if ok else "Prüfen"
 
-    return ok, outcome_str, value
+    if ok:
+        return True, outcome_str, f"Behandlung qualitativer Risiken ist definiert: {value}"
+    else:
+        return False, outcome_str, f"Behandlung qualitativer Risiken fehlt oder ist ungültig. Gefundener Wert in E4: '{value}' (erwartet: (1), (2) oder (3))"
 
 #### Schlussfolgerungen, Dokument.
 
 def check_orsa_dokumentation_sufficient(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Schlussfolgerungen, Dokument.")
+    
+    if sheet is None:
+        return False, "Prüfen", "Das Tabellenblatt 'Schlussfolgerungen, Dokument.' wurde in der Arbeitsmappe nicht gefunden"
 
     values = [str(sheet[f"C{row}"].value or "") for row in range(24, 31)]
 
     if any(v.startswith("(3)") for v in values):
         result_str = "ungenügend"
+        desc = "ORSA-Dokumentation ist ungenügend: Mindestens ein Kriterium ist mit (3) 'ungenügend' bewertet"
     elif all(v.startswith("(2)") for v in values if v != "") and any(v != "" for v in values):
         result_str = "gut"
+        desc = "ORSA-Dokumentation ist gut: Alle ausgefüllten Kriterien sind mit (2) 'gut/ausreichend' bewertet"
     elif any(v.startswith("(2)") for v in values):
         result_str = "mangelhaft"
+        desc = "ORSA-Dokumentation ist mangelhaft: Nur teilweise mit (2) 'gut/ausreichend' bewertet, aber kein (3) 'ungenügend' vorhanden"
     else:
         result_str = "Prüfen"
+        desc = "ORSA-Dokumentation muss geprüft werden: Keine gültigen Bewertungen (1)-(3) in den Zeilen 24-30 gefunden"
 
-    return result_str == "gut", result_str, result_str
+    return result_str == "gut", result_str, desc
 
 
 ##########################
