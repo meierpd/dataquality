@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import List, Tuple, Optional
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
 from orsa_analysis.core.reader import ExcelReader
@@ -89,33 +90,60 @@ class DocumentProcessor:
             processed_at = datetime.now()
 
             all_checks = get_all_checks()
-            logger.info(f"Running {len(all_checks)} checks on {file_path.name}")
+            logger.info(f"Running {len(all_checks)} checks on {file_path.name} (parallel execution)")
 
-            for check_name, check_function in all_checks:
+            # Execute checks in parallel using ThreadPoolExecutor
+            def execute_check(check_tuple):
+                check_name, check_function = check_tuple
                 outcome, outcome_str, description = run_check(
                     check_name, check_function, workbook
                 )
+                return check_name, outcome, outcome_str, description
 
-                result = CheckResult(
-                    institute_id=institute_id,
-                    file_name=version_info.file_name,
-                    file_hash=version_info.file_hash,
-                    version_number=version_info.version_number,
-                    check_name=check_name,
-                    check_description=description,
-                    outcome_bool=outcome,
-                    outcome_str=outcome_str,
-                    processed_at=processed_at,
-                    geschaeft_nr=geschaeft_nr,
-                    berichtsjahr=berichtsjahr,
-                )
-                results.append(result)
+            # Use ThreadPoolExecutor for parallel execution
+            with ThreadPoolExecutor() as executor:
+                # Submit all checks and maintain order by using a dictionary
+                future_to_check = {
+                    executor.submit(execute_check, check): check[0]
+                    for check in all_checks
+                }
+                
+                # Collect results in order of original check list
+                check_results_dict = {}
+                for future in as_completed(future_to_check):
+                    check_name = future_to_check[future]
+                    try:
+                        check_name, outcome, outcome_str, description = future.result()
+                        check_results_dict[check_name] = (outcome, outcome_str, description)
+                        
+                        log_level = logging.INFO if outcome else logging.WARNING
+                        logger.log(
+                            log_level,
+                            f"Check '{check_name}': {'PASS' if outcome else 'FAIL'} - {description}",
+                        )
+                    except Exception as e:
+                        logger.error(f"Check '{check_name}' failed with exception: {e}")
+                        check_results_dict[check_name] = (False, "zu prüfen", f"Check failed with error: {str(e)}")
 
-                log_level = logging.INFO if outcome else logging.WARNING
-                logger.log(
-                    log_level,
-                    f"Check '{check_name}': {'PASS' if outcome else 'FAIL'} - {description}",
-                )
+            # Build results list in original order
+            for check_name, check_function in all_checks:
+                if check_name in check_results_dict:
+                    outcome, outcome_str, description = check_results_dict[check_name]
+                    
+                    result = CheckResult(
+                        institute_id=institute_id,
+                        file_name=version_info.file_name,
+                        file_hash=version_info.file_hash,
+                        version_number=version_info.version_number,
+                        check_name=check_name,
+                        check_description=description,
+                        outcome_bool=outcome,
+                        outcome_str=outcome_str,
+                        processed_at=processed_at,
+                        geschaeft_nr=geschaeft_nr,
+                        berichtsjahr=berichtsjahr,
+                    )
+                    results.append(result)
 
             logger.info(
                 f"Completed processing {file_path.name}: "

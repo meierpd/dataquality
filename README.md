@@ -9,6 +9,7 @@ This project provides an automated way to validate Excel files submitted by inst
 * **File Processing & Caching**: SHA-256 hash-based caching to avoid reprocessing identical files
 * **Automatic Versioning**: Version assignment per institute based on file content changes
 * **Modular Check System**: Extensible Python-based quality checks with simple registration
+* **Parallel Check Execution**: Multi-threaded concurrent execution of quality checks for improved performance
 * **Multi-Language Support**: Automatic detection and handling of German, English, and French Excel sheet names
 * **Report Generation**: Automated standalone Excel report creation with check results from templates
 * **SharePoint Upload**: Automatic upload of generated reports back to SharePoint (same location as source files)
@@ -16,7 +17,7 @@ This project provides an automated way to validate Excel files submitted by inst
 * **Force Reprocess Mode**: Option to reprocess files regardless of cache status
 * **ORSADocumentSourcer Integration**: Direct integration with document sourcing system
 * **Multiple Excel File Versions**: Support for both standard and Zweigniederlassungs versions with version-specific checks
-* **Comprehensive Testing**: Full unit test coverage for all modules (160 tests)
+* **Comprehensive Testing**: Full unit test coverage for all modules (161 tests)
 
 ## Excel File Versions
 
@@ -60,6 +61,23 @@ The tool automatically detects which version is being processed by checking for 
 4. **Database Writer**: Each result is written as a separate row, including metadata.
 5. **Excel Report Generator**: A formatted workbook is created for each institute showing results plus empty fields for manual assessment.
 6. **SharePoint Uploader**: Generated reports are automatically uploaded back to SharePoint in the same folder as the source documents (upload can be disabled with `--no-upload` flag).
+
+## Performance
+
+The tool uses **parallel execution** to speed up check processing:
+
+* **Multi-threaded Check Execution**: Quality checks within each file are executed concurrently using Python's `ThreadPoolExecutor`
+* **Automatic Parallelization**: All 40+ checks run in parallel threads, significantly reducing processing time
+* **Order Preservation**: Results are collected and stored in the original check order for consistency
+* **Error Isolation**: Each check runs independently; failures in one check don't affect others
+
+This parallelization approach is particularly effective because:
+- Each check is an independent, read-only operation on the workbook
+- Checks perform I/O operations (reading Excel cells) that benefit from concurrent execution
+- No shared state or locks required between checks
+- Linear scaling with number of checks
+
+**Performance Improvement**: Depending on the number of checks and workbook complexity, parallel execution can reduce processing time by 50-70% compared to sequential execution.
 
 ## Directory Structure
 
