@@ -300,12 +300,15 @@ The reporting module generates standalone Excel reports containing check results
 Generated reports are standalone files containing only template sheets with populated check results:
 1. **Template Sheets Only**: The "Auswertung" sheet and other template sheets (source file content is NOT included)
 2. **Institut Metadata**: Institute-specific metadata is automatically populated:
-   - Cell C3: FinmaID (Institute identifier)
-   - Cell C4: FinmaObjektName (Institute name)
-   - Cell C5: MitarbeiterName (Employee name)
-3. **Check Results**: Check outcomes are written to specific cells (e.g., SST check → C8)
+   - Cell E2: FinmaObjektName (Institute name)
+   - Cell E3: FinmaID (Institute identifier)
+   - Cell E4: Aufsichtskategorie (Supervisory category)
+   - Cell E6: MitarbeiterName (Employee name)
+3. **Check Results**: Check outcomes and descriptions are written to specific cells:
+   - Check outcome → Configured outcome cell (e.g., SST check outcome → C8)
+   - Check description → Configured description cell (e.g., SST check description → D8)
 
-The institut metadata is sourced from the `institut_metadata.sql` query and merged with the report data using FinmaID as the key. The source ORSA file remains unchanged and separate from the generated report.
+The institut metadata is sourced from the `institut_metadata.sql` query and merged with the report data using FinmaID as the key. Check descriptions provide detailed explanations of why each check passed or failed. The source ORSA file remains unchanged and separate from the generated report.
 
 ### Report Generation Workflow
 
@@ -358,43 +361,63 @@ print(f"Generated {len(report_paths)} reports")
 
 ### Check to Cell Mapping
 
-The system maps check results to specific cells in the output Excel file. This mapping is defined in `check_mapper.py`:
+The system maps check results to specific cells in the output Excel file. Each mapping includes:
+- **Outcome cell**: Where the check result (outcome_str or outcome_bool) is written
+- **Description cell** (optional): Where the check description is written
+
+Mappings are defined in `check_to_cell_mapper.py`:
 
 ```python
-from orsa_analysis.reporting import CheckMapper, CellMapping
+from orsa_analysis.reporting import CheckToCellMapper
+
+# Default mapping format: (sheet_name, outcome_cell, value_type, description_cell)
+CHECK_MAPPINGS = {
+    "sst_three_years_filled": ("Auswertung", "C8", "outcome_str", "D8"),
+    # If outcome is in C8, description goes in D8 (to the right)
+}
+```
+
+**Working with the mapper:**
+
+```python
+from orsa_analysis.reporting import CheckToCellMapper
+
+# Initialize mapper
+mapper = CheckToCellMapper()
 
 # View all mapped checks
-mapper = CheckMapper()
 checks = mapper.get_mapped_checks()
 print(f"Mapped checks: {checks}")
 
-# Get cell location for a check
-mapping = mapper.get_cell_location("check_sst_three_years_filled")
-print(f"SST check -> {mapping.sheet_name}!{mapping.cell_address}")
+# Get cell location for a check (returns 4-tuple)
+mapping = mapper.get_cell_location("sst_three_years_filled")
+sheet_name, outcome_cell, value_type, description_cell = mapping
+print(f"SST check outcome -> {sheet_name}!{outcome_cell}")
+print(f"SST check description -> {sheet_name}!{description_cell}")
 
-# Add custom mapping
+# Add custom mapping with description
 mapper.add_mapping(
     "my_custom_check",
-    CellMapping(
-        cell_address="D15",
-        value_type="outcome_bool",
-        format_rule="boolean_to_text",
-        sheet_name="Auswertung"
-    )
+    sheet_name="Auswertung",
+    cell_address="E10",
+    value_type="outcome_str",
+    description_cell="F10"  # Optional: omit if no description mapping needed
+)
+
+# Add mapping without description
+mapper.add_mapping(
+    "another_check",
+    sheet_name="Auswertung", 
+    cell_address="E15",
+    value_type="outcome_bool"
+    # description_cell defaults to None
 )
 ```
 
-### Supported Format Rules
-
-The system includes several built-in format rules for transforming check results:
-
-- `boolean_to_text`: True → "Pass", False → "Fail"
-- `boolean_to_yes_no`: True → "Yes", False → "No"
-- `boolean_inverse`: True → "Fail", False → "Pass" (for negative checks)
-- `numeric_with_decimals`: Formats numbers with 2 decimal places
-- `percentage`: Formats as percentage (0.856 → "85.6%")
-- `count`: Converts to integer count
-- `raw`: No transformation (passes value as-is)
+**Value types:**
+- `outcome_str`: String representation of check result (e.g., "genügend", "zu prüfen")
+- `outcome_bool`: Boolean result (True/False or 1/0)
+- `check_description`: Detailed description explaining the check result
 
 ### Report Versioning
 

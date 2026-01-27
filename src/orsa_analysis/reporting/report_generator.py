@@ -195,12 +195,12 @@ class ReportGenerator:
                 logger.debug(f"No mapping for check: {check_name}")
                 continue
             
-            # Get cell mapping (sheet_name, cell_address, value_type)
+            # Get cell mapping (sheet_name, outcome_cell, value_type, description_cell)
             mapping = self.check_mapper.get_cell_location(check_name)
             if not mapping:
                 continue
             
-            sheet_name, cell_address, value_type = mapping
+            sheet_name, cell_address, value_type, description_cell = mapping
             
             # Get and format value
             try:
@@ -208,7 +208,7 @@ class ReportGenerator:
                     result, sheet_name, cell_address, value_type
                 )
                 
-                # Write to cell
+                # Write outcome value to cell
                 success = self.template_manager.write_cell_value(
                     sheet_name,
                     cell_address,
@@ -221,6 +221,26 @@ class ReportGenerator:
                         f"Applied {check_name} -> "
                         f"{sheet_name}!{cell_address} = {value}"
                     )
+                
+                # Write description to cell if mapping exists
+                if description_cell:
+                    description = self.check_mapper.get_value_from_result(
+                        result, sheet_name, description_cell, "check_description"
+                    )
+                    
+                    if description:
+                        desc_success = self.template_manager.write_cell_value(
+                            sheet_name,
+                            description_cell,
+                            description
+                        )
+                        
+                        if desc_success:
+                            logger.debug(
+                                f"Applied {check_name} description -> "
+                                f"{sheet_name}!{description_cell} = {description}"
+                            )
+                        
             except Exception as e:
                 logger.error(f"Failed to apply check {check_name}: {e}")
         
