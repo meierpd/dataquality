@@ -44,6 +44,10 @@ SHEET_NAME_MAPPING: Dict[str, Dict[str, str]] = {
         "EN": "Results_IFRS",
         "FR": "Résultats_IFRS"
     },
+    "Ergebnisse": {
+        "EN": "Results",
+        "FR": "Résultats"
+    },
     "Qual. & langfr. Risiken": {
         "EN": "Qual. & long-term risks",
         "FR": "Risques qual. & à long terme"

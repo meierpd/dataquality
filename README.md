@@ -15,7 +15,38 @@ This project provides an automated way to validate Excel files submitted by inst
 * **Database Output**: Denormalized qc_results table ready for MSSQL storage
 * **Force Reprocess Mode**: Option to reprocess files regardless of cache status
 * **ORSADocumentSourcer Integration**: Direct integration with document sourcing system
-* **Comprehensive Testing**: Full unit test coverage for all modules (150 tests)
+* **Multiple Excel File Versions**: Support for both standard and Zweigniederlassungs versions with version-specific checks
+* **Comprehensive Testing**: Full unit test coverage for all modules (160 tests)
+
+## Excel File Versions
+
+The tool supports two different versions of the ORSA Excel input files:
+
+### Standard Version
+Contains the following results sheets:
+- `Ergebnisse_AVO-FINMA` (Results_ISO-FINMA in English, Résultats_OS-FINMA in French)
+- `Ergebnisse_IFRS` (Results_IFRS in English, Résultats_IFRS in French)
+- `Qual. & langfr. Risiken` sheet for qualitative and long-term risks
+
+### Zweigniederlassungs Version
+This version is specifically for branch offices (Zweigniederlassungen) and has a different structure:
+- Single `Ergebnisse` sheet (Results in English, Résultats in French) instead of separate AVO-FINMA and IFRS sheets
+- No `Qual. & langfr. Risiken` sheet
+- Different cell ranges for various checks to match the simplified structure
+
+The tool automatically detects which version is being processed by checking for the presence of the `Ergebnisse` sheet (without suffix). Version-specific checks are then applied:
+
+**Checks that return "Kein Rating" for Zweigniederlassungs version:**
+- Board approval check (`check_board_approved_orsa`)
+- SST-related checks (standard and scenario versions)
+- Qualitative and long-term risk checks
+
+**Checks with different cell ranges for Zweigniederlassungs version:**
+- Business planning checks (E10-G20, E23-E30)
+- Tied assets checks (E38-G40)
+- Provisions checks (E60-G60)
+- Other perspective checks (E63-G63, E66-G66, E69-G69)
+- All corresponding scenario checks with adjusted ranges
 
 ## Architecture
 

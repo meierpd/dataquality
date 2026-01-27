@@ -7,9 +7,51 @@ from typing import Any, Dict, Optional, Tuple
 # value_type can be: "outcome_str" or "outcome_bool"
 # description_cell is optional (can be None if no description mapping is needed)
 # Note: check_name should match the name registered in REGISTERED_CHECKS (rules.py)
-# Example: if outcome is in C8, description goes in D8 (cell to the right)
 CHECK_MAPPINGS: Dict[str, Tuple[str, str, str, Optional[str]]] = {
-    "sst_three_years_filled": ("Auswertung", "C8", "outcome_str", "D8"),
+    "check_responsible_person": ("Daten", "C4", "outcome_str", "D4"),
+    "check_data_recency_geschaeftsplanung": ("Daten", "C5", "outcome_str", "D5"),
+    "check_data_recency_risikoidentifikation": ("Daten", "C6", "outcome_str", "D6"),
+    "check_data_recency_szenarien": ("Daten", "C7", "outcome_str", "D7"),
+    "check_board_approved_orsa": ("Daten", "C8", "outcome_str", "D8"),
+    "check_risikobeurteilung_method": ("Daten", "C9", "outcome_str", "D9"),
+    "check_risk_criteria_sufficient": ("Daten", "C10", "outcome_str", "D10"),
+    "check_finanzmarktrisiko_count": ("Daten", "C11", "outcome_str", "D11"),
+    "check_versicherungsrisiko_count": ("Daten", "C12", "outcome_str", "D12"),
+    "check_kreditrisiko_count": ("Daten", "C13", "outcome_str", "D13"),
+    "check_liquiditaetsrisiko_count": ("Daten", "C14", "outcome_str", "D14"),
+    "check_operationelles_risiko_count": ("Daten", "C15", "outcome_str", "D15"),
+    "check_strategisches_umfeld_risiko_count": ("Daten", "C16", "outcome_str", "D16"),
+    "check_anderes_risiko_count": ("Daten", "C17", "outcome_str", "D17"),
+    "check_count_number_mitigating_measures": ("Daten", "C18", "outcome_str", "D18"),
+    "check_count_number_potential_mitigating_measures": ("Daten", "C19", "outcome_str", "D19"),
+    "check_count_other_measures": ("Daten", "C20", "outcome_str", "D20"),
+    "check_count_potential_other_measures": ("Daten", "C21", "outcome_str", "D21"),
+    "check_risks_are_all_mitigated": ("Daten", "C22", "outcome_str", "D22"),
+    "check_any_nonmitigating_measures": ("Daten", "C23", "outcome_str", "D23"),
+    "check_count_all_scenarios": ("Daten", "C24", "outcome_str", "D24"),
+    "check_count_advers_scenarios": ("Daten", "C25", "outcome_str", "D25"),
+    "check_count_existenzbedrohend_scenarios": ("Daten", "C26", "outcome_str", "D26"),
+    "check_count_other_scenarios": ("Daten", "C27", "outcome_str", "D27"),
+    "check_every_scenario_has_event": ("Daten", "C28", "outcome_str", "D28"),
+    "check_count_scenarios_only_one_event": ("Daten", "C29", "outcome_str", "D29"),
+    "check_count_scenarios_multiple_events": ("Daten", "C30", "outcome_str", "D30"),
+    "check_every_scenario_has_risk": ("Daten", "C31", "outcome_str", "D31"),
+    "check_count_scenarios_only_one_risk": ("Daten", "C32", "outcome_str", "D32"),
+    "check_count_scenrios_multiple_risks": ("Daten", "C33", "outcome_str", "D33"),
+    "check_business_planning_filled_three_years": ("Daten", "C34", "outcome_str", "D34"),
+    "check_sst_filled_three_years": ("Daten", "C35", "outcome_str", "D35"),
+    "check_tied_assets_filled_three_years": ("Daten", "C36", "outcome_str", "D36"),
+    "check_provisions_filled_three_years": ("Daten", "C37", "outcome_str", "D37"),
+    "check_other_perspective_filled_three_years": ("Daten", "C38", "outcome_str", "D38"),
+    "check_scenarios_business_planning_filled_three_years": ("Daten", "C39", "outcome_str", "D39"),
+    "check_scenarios_sst_filled_three_years": ("Daten", "C40", "outcome_str", "D40"),
+    "check_scenarios_tied_assets_filled_three_years": ("Daten", "C41", "outcome_str", "D41"),
+    "check_scenarios_provisions_filled_three_years": ("Daten", "C42", "outcome_str", "D42"),
+    "check_scenarios_other_perspective_filled_three_years": ("Daten", "C43", "outcome_str", "D43"),
+    "check_count_longterm_risks": ("Daten", "C44", "outcome_str", "D44"),
+    "check_treatment_of_qual_risks": ("Daten", "C45", "outcome_str", "D45"),
+    "check_orsa_dokumentation_sufficient": ("Daten", "C46", "outcome_str", "D46"),
+
     # Add more mappings here as needed:
     # "check_name": ("SheetName", "A1", "outcome_str", "B1"),  # with description
     # "check_name_bool": ("SheetName", "A2", "outcome_bool", None),  # without description
