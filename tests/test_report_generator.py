@@ -179,3 +179,112 @@ class TestReportGeneratorInstitutMetadata:
             
             # Verify report was generated
             assert result is not None
+
+
+class TestReportGeneratorErrorHandling:
+    """Test cases for error handling in report generation."""
+
+    def test_generate_all_reports_continues_on_error(
+        self, report_generator, mock_db_manager, mock_template_manager, tmp_path
+    ):
+        """Test that generate_all_reports continues when one report fails."""
+        # Mock multiple institutes
+        mock_db_manager.get_all_institutes_with_results.return_value = [
+            "INST001", "INST002", "INST003"
+        ]
+        
+        # Create mock source files
+        source_files = {
+            "INST001": tmp_path / "source1.xlsx",
+            "INST002": tmp_path / "source2.xlsx",
+            "INST003": tmp_path / "source3.xlsx",
+        }
+        for path in source_files.values():
+            path.touch()
+        
+        # Mock generate_report to fail for INST002
+        call_count = [0]
+        def generate_report_side_effect(institute_id, source_file_path):
+            call_count[0] += 1
+            if institute_id == "INST002":
+                raise PermissionError(f"Permission denied: {source_file_path}")
+            return tmp_path / f"report_{institute_id}.xlsx"
+        
+        with patch.object(report_generator, 'generate_report', side_effect=generate_report_side_effect):
+            # Generate all reports
+            result = report_generator.generate_all_reports(source_files=source_files)
+            
+            # Verify all institutes were processed (3 calls)
+            assert call_count[0] == 3
+            
+            # Verify only 2 reports were successfully generated (INST002 failed)
+            assert len(result) == 2
+            assert tmp_path / "report_INST001.xlsx" in result
+            assert tmp_path / "report_INST003.xlsx" in result
+
+    def test_generate_all_reports_handles_multiple_errors(
+        self, report_generator, mock_db_manager, mock_template_manager, tmp_path
+    ):
+        """Test that generate_all_reports handles multiple failures gracefully."""
+        # Mock multiple institutes
+        mock_db_manager.get_all_institutes_with_results.return_value = [
+            "INST001", "INST002", "INST003", "INST004"
+        ]
+        
+        # Create mock source files
+        source_files = {
+            "INST001": tmp_path / "source1.xlsx",
+            "INST002": tmp_path / "source2.xlsx",
+            "INST003": tmp_path / "source3.xlsx",
+            "INST004": tmp_path / "source4.xlsx",
+        }
+        for path in source_files.values():
+            path.touch()
+        
+        # Mock generate_report to fail for INST002 and INST004
+        def generate_report_side_effect(institute_id, source_file_path):
+            if institute_id == "INST002":
+                raise PermissionError("Permission denied")
+            elif institute_id == "INST004":
+                raise IOError("Disk full")
+            return tmp_path / f"report_{institute_id}.xlsx"
+        
+        with patch.object(report_generator, 'generate_report', side_effect=generate_report_side_effect):
+            # Generate all reports
+            result = report_generator.generate_all_reports(source_files=source_files)
+            
+            # Verify only 2 reports were successfully generated
+            assert len(result) == 2
+            assert tmp_path / "report_INST001.xlsx" in result
+            assert tmp_path / "report_INST003.xlsx" in result
+
+    def test_generate_all_reports_handles_none_return(
+        self, report_generator, mock_db_manager, mock_template_manager, tmp_path
+    ):
+        """Test that generate_all_reports handles None returns from generate_report."""
+        # Mock multiple institutes
+        mock_db_manager.get_all_institutes_with_results.return_value = [
+            "INST001", "INST002"
+        ]
+        
+        # Create mock source files
+        source_files = {
+            "INST001": tmp_path / "source1.xlsx",
+            "INST002": tmp_path / "source2.xlsx",
+        }
+        for path in source_files.values():
+            path.touch()
+        
+        # Mock generate_report to return None for INST002
+        def generate_report_side_effect(institute_id, source_file_path):
+            if institute_id == "INST002":
+                return None
+            return tmp_path / f"report_{institute_id}.xlsx"
+        
+        with patch.object(report_generator, 'generate_report', side_effect=generate_report_side_effect):
+            # Generate all reports
+            result = report_generator.generate_all_reports(source_files=source_files)
+            
+            # Verify only 1 report was successfully generated
+            assert len(result) == 1
+            assert tmp_path / "report_INST001.xlsx" in result
