@@ -724,6 +724,25 @@ def _is_zweigniederlassungs_version(wb: Workbook) -> bool:
     return bool(zweigniederlassungs_sheets & sheet_names)
 
 
+def _is_avo_finma_sheet(sheet_title: str) -> bool:
+    """Check if a sheet title corresponds to the AVO-FINMA results sheet.
+    
+    Handles all supported languages (German, English, French).
+    
+    Args:
+        sheet_title: The title of the sheet to check
+        
+    Returns:
+        True if this is an AVO-FINMA results sheet, False otherwise
+    """
+    avo_finma_sheets = {
+        "Ergebnisse_AVO-FINMA",  # German
+        "Results_ISO-FINMA",      # English
+        "Résultats_OS-FINMA"     # French
+    }
+    return sheet_title in avo_finma_sheets
+
+
 def _get_filled_results_sheet(wb: Workbook) -> Tuple[bool, str, str, object]:
     mapper = SheetNameMapper(wb)
     
@@ -768,9 +787,9 @@ def check_business_planning_filled_three_years(wb: Workbook) -> Tuple[bool, str,
     if not ok:
         return False, outcome_str, details_str
 
-    # Check if Zweigniederlassungs version (by checking if sheet name contains "Ergebnisse" without suffix)
-    is_zweigniederlassung = "Ergebnisse_" not in sheet.title and "Ergebnisse" in sheet.title
-    is_avo = sheet.title == "Ergebnisse_AVO-FINMA"
+    # Check if Zweigniederlassungs version
+    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
+    is_avo = _is_avo_finma_sheet(sheet.title)
 
     if is_zweigniederlassung:
         # Zweigniederlassungs version: E10-G20 and E23-E30
@@ -798,7 +817,7 @@ def check_sst_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
     if not ok:
         return False, outcome_str, details_str
 
-    is_avo = sheet.title == "Ergebnisse_AVO-FINMA"
+    is_avo = _is_avo_finma_sheet(sheet.title)
 
     if is_avo:
         ok = _range_has_no_empty_cells(sheet, "E", "G", 42, 45)
@@ -816,8 +835,8 @@ def check_tied_assets_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
         return False, outcome_str, details_str
 
     # Check if Zweigniederlassungs version
-    is_zweigniederlassung = "Ergebnisse_" not in sheet.title and "Ergebnisse" in sheet.title
-    is_avo = sheet.title == "Ergebnisse_AVO-FINMA"
+    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
+    is_avo = _is_avo_finma_sheet(sheet.title)
 
     if is_zweigniederlassung:
         # Zweigniederlassungs version: E38 to G40
@@ -837,8 +856,8 @@ def check_provisions_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
         return False, outcome_str, details_str
 
     # Check if Zweigniederlassungs version
-    is_zweigniederlassung = "Ergebnisse_" not in sheet.title and "Ergebnisse" in sheet.title
-    is_avo = sheet.title == "Ergebnisse_AVO-FINMA"
+    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
+    is_avo = _is_avo_finma_sheet(sheet.title)
 
     if is_zweigniederlassung:
         # Zweigniederlassungs version: E60 to G60
@@ -859,8 +878,8 @@ def check_other_perspective_filled_three_years(wb: Workbook) -> Tuple[bool, str,
         return False, outcome_str, details_str
 
     # Check if Zweigniederlassungs version
-    is_zweigniederlassung = "Ergebnisse_" not in sheet.title and "Ergebnisse" in sheet.title
-    is_avo = sheet.title == "Ergebnisse_AVO-FINMA"
+    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
+    is_avo = _is_avo_finma_sheet(sheet.title)
 
     if is_zweigniederlassung:
         # Zweigniederlassungs version: E63 to G63, E66 to G66, E69 to G69
@@ -933,8 +952,8 @@ def check_scenarios_business_planning_filled_three_years(wb: Workbook) -> Tuple[
     szenarien_sheet = mapper.get_sheet("Szenarien")
 
     # Check if Zweigniederlassungs version
-    is_zweigniederlassung = "Ergebnisse_" not in results_sheet.title and "Ergebnisse" in results_sheet.title
-    is_avo = results_sheet.title == "Ergebnisse_AVO-FINMA"
+    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
+    is_avo = _is_avo_finma_sheet(results_sheet.title)
 
     for i, type_addr in enumerate(_scenario_type_cells()):
         if (szenarien_sheet[type_addr].value or "") == "":
@@ -971,7 +990,7 @@ def check_scenarios_sst_filled_three_years(wb: Workbook) -> Tuple[bool, str, str
     mapper = SheetNameMapper(wb)
     szenarien_sheet = mapper.get_sheet("Szenarien")
 
-    is_avo = results_sheet.title == "Ergebnisse_AVO-FINMA"
+    is_avo = _is_avo_finma_sheet(results_sheet.title)
 
     for i, type_addr in enumerate(_scenario_type_cells()):
         if (szenarien_sheet[type_addr].value or "") == "":
@@ -999,8 +1018,8 @@ def check_scenarios_tied_assets_filled_three_years(wb: Workbook) -> Tuple[bool, 
     szenarien_sheet = mapper.get_sheet("Szenarien")
 
     # Check if Zweigniederlassungs version
-    is_zweigniederlassung = "Ergebnisse_" not in results_sheet.title and "Ergebnisse" in results_sheet.title
-    is_avo = results_sheet.title == "Ergebnisse_AVO-FINMA"
+    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
+    is_avo = _is_avo_finma_sheet(results_sheet.title)
 
     for i, type_addr in enumerate(_scenario_type_cells()):
         if (szenarien_sheet[type_addr].value or "") == "":
@@ -1031,8 +1050,8 @@ def check_scenarios_provisions_filled_three_years(wb: Workbook) -> Tuple[bool, s
     szenarien_sheet = mapper.get_sheet("Szenarien")
 
     # Check if Zweigniederlassungs version
-    is_zweigniederlassung = "Ergebnisse_" not in results_sheet.title and "Ergebnisse" in results_sheet.title
-    is_avo = results_sheet.title == "Ergebnisse_AVO-FINMA"
+    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
+    is_avo = _is_avo_finma_sheet(results_sheet.title)
     
     if is_zweigniederlassung:
         row = 60
@@ -1061,8 +1080,8 @@ def check_scenarios_other_perspective_filled_three_years(wb: Workbook) -> Tuple[
     szenarien_sheet = mapper.get_sheet("Szenarien")
 
     # Check if Zweigniederlassungs version
-    is_zweigniederlassung = "Ergebnisse_" not in results_sheet.title and "Ergebnisse" in results_sheet.title
-    is_avo = results_sheet.title == "Ergebnisse_AVO-FINMA"
+    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
+    is_avo = _is_avo_finma_sheet(results_sheet.title)
 
     if is_zweigniederlassung:
         # Zweigniederlassungs version: K63 to M63, K66 to M66, K69 to M69
