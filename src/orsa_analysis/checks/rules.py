@@ -1352,131 +1352,64 @@ def check_liquidity_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
     For IFRS: line 88
     For Zweigniederlassung: line 66
     """
-    mapper = SheetNameMapper(wb)
+    ok, outcome_str, details_str, sheet = _get_filled_results_sheet(wb)
+    if not ok:
+        return False, outcome_str, details_str
+
+    # Check if Zweigniederlassungs version
     is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
-    
+    is_avo = _is_avo_finma_sheet(sheet.title)
+
     if is_zweigniederlassung:
-        # Zweigniederlassung version - check line 66 in Ergebnisse sheet
-        sheet = mapper.get_sheet("Ergebnisse")
-        if sheet is None:
-            return False, "Nein", "Tabellenblatt 'Ergebnisse' nicht gefunden"
-        
-        row = 66
-        e_val = sheet[f"E{row}"].value
-        f_val = sheet[f"F{row}"].value
-        g_val = sheet[f"G{row}"].value
-        
-        all_filled = all(val is not None and str(val).strip() != "" for val in [e_val, f_val, g_val])
-        result_str = "Ja" if all_filled else "Nein"
-        
-        if all_filled:
-            return True, result_str, f"Liquidität für drei Jahre ausgefüllt (Zeile {row}): Ja"
-        else:
-            return False, result_str, f"Liquidität für drei Jahre ausgefüllt (Zeile {row}): Nein - nicht alle drei Jahre sind ausgefüllt"
+        # Zweigniederlassungs version: line 66
+        ok = _range_has_no_empty_cells(sheet, "E", "G", 66, 66)
+    elif is_avo:
+        # AVO-FINMA: line 86
+        ok = _range_has_no_empty_cells(sheet, "E", "G", 86, 86)
     else:
-        # Sitzgesellschaft version - check both AVO-FINMA (line 86) and IFRS (line 88)
-        sheet_avo = mapper.get_sheet("Ergebnisse_AVO-FINMA")
-        sheet_ifrs = mapper.get_sheet("Ergebnisse_IFRS")
-        
-        results = []
-        
-        # Check AVO-FINMA line 86
-        if sheet_avo is not None:
-            row = 86
-            e_val = sheet_avo[f"E{row}"].value
-            f_val = sheet_avo[f"F{row}"].value
-            g_val = sheet_avo[f"G{row}"].value
-            avo_filled = all(val is not None and str(val).strip() != "" for val in [e_val, f_val, g_val])
-            results.append(("AVO-FINMA", avo_filled, row))
-        else:
-            results.append(("AVO-FINMA", False, 86))
-        
-        # Check IFRS line 88
-        if sheet_ifrs is not None:
-            row = 88
-            e_val = sheet_ifrs[f"E{row}"].value
-            f_val = sheet_ifrs[f"F{row}"].value
-            g_val = sheet_ifrs[f"G{row}"].value
-            ifrs_filled = all(val is not None and str(val).strip() != "" for val in [e_val, f_val, g_val])
-            results.append(("IFRS", ifrs_filled, row))
-        else:
-            results.append(("IFRS", False, 88))
-        
-        # Both must be filled
-        all_filled = all(filled for _, filled, _ in results)
-        result_str = "Ja" if all_filled else "Nein"
-        
-        desc_parts = [f"{name} Zeile {row}: {'Ja' if filled else 'Nein'}" for name, filled, row in results]
-        desc = f"Liquidität für drei Jahre ausgefüllt - {', '.join(desc_parts)}"
-        
-        return all_filled, result_str, desc
+        # IFRS: line 88
+        ok = _range_has_no_empty_cells(sheet, "E", "G", 88, 88)
+
+    if ok:
+        return True, "Ja", "Liquidität ist vollständig für drei Jahre ausgefüllt"
+
+    return False, "Nein", "Liquidität ist nicht vollständig für drei Jahre ausgefüllt"
 
 
 def check_scenarios_liquidity_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
     """Check if scenario liquidity is filled for three years.
     
-    For AVO-FINMA: line 86 in scenarios sheet
-    For IFRS: line 88 in scenarios sheet
-    For Zweigniederlassung: line 66 in scenarios sheet
+    For AVO-FINMA: line 86
+    For IFRS: line 88
+    For Zweigniederlassung: line 66
     """
+    ok, outcome_str, details_str, results_sheet = _get_filled_results_sheet(wb)
+    if not ok:
+        return False, outcome_str, details_str
+
     mapper = SheetNameMapper(wb)
+    szenarien_sheet = mapper.get_sheet("Szenarien")
+
+    # Check if Zweigniederlassungs version
     is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
-    
+    is_avo = _is_avo_finma_sheet(results_sheet.title)
+
     if is_zweigniederlassung:
-        # Zweigniederlassung version - check line 66 in Szenarien sheet
-        sheet = mapper.get_sheet("Szenarien")
-        if sheet is None:
-            return False, "Nein", "Tabellenblatt 'Szenarien' nicht gefunden"
-        
         row = 66
-        e_val = sheet[f"E{row}"].value
-        f_val = sheet[f"F{row}"].value
-        g_val = sheet[f"G{row}"].value
-        
-        all_filled = all(val is not None and str(val).strip() != "" for val in [e_val, f_val, g_val])
-        result_str = "Ja" if all_filled else "Nein"
-        
-        if all_filled:
-            return True, result_str, f"Szenarien Liquidität für drei Jahre ausgefüllt (Zeile {row}): Ja"
-        else:
-            return False, result_str, f"Szenarien Liquidität für drei Jahre ausgefüllt (Zeile {row}): Nein - nicht alle drei Jahre sind ausgefüllt"
     else:
-        # Sitzgesellschaft version - check both AVO-FINMA (line 86) and IFRS (line 88) in Szenarien sheets
-        sheet_avo = mapper.get_sheet("Szenarien_AVO-FINMA")
-        sheet_ifrs = mapper.get_sheet("Szenarien_IFRS")
-        
-        results = []
-        
-        # Check AVO-FINMA line 86
-        if sheet_avo is not None:
-            row = 86
-            e_val = sheet_avo[f"E{row}"].value
-            f_val = sheet_avo[f"F{row}"].value
-            g_val = sheet_avo[f"G{row}"].value
-            avo_filled = all(val is not None and str(val).strip() != "" for val in [e_val, f_val, g_val])
-            results.append(("AVO-FINMA", avo_filled, row))
-        else:
-            results.append(("AVO-FINMA", False, 86))
-        
-        # Check IFRS line 88
-        if sheet_ifrs is not None:
-            row = 88
-            e_val = sheet_ifrs[f"E{row}"].value
-            f_val = sheet_ifrs[f"F{row}"].value
-            g_val = sheet_ifrs[f"G{row}"].value
-            ifrs_filled = all(val is not None and str(val).strip() != "" for val in [e_val, f_val, g_val])
-            results.append(("IFRS", ifrs_filled, row))
-        else:
-            results.append(("IFRS", False, 88))
-        
-        # Both must be filled
-        all_filled = all(filled for _, filled, _ in results)
-        result_str = "Ja" if all_filled else "Nein"
-        
-        desc_parts = [f"{name} Zeile {row}: {'Ja' if filled else 'Nein'}" for name, filled, row in results]
-        desc = f"Szenarien Liquidität für drei Jahre ausgefüllt - {', '.join(desc_parts)}"
-        
-        return all_filled, result_str, desc
+        row = 86 if is_avo else 88
+
+    for i, type_addr in enumerate(_scenario_type_cells()):
+        if (szenarien_sheet[type_addr].value or "") == "":
+            continue
+
+        start_col, end_col = _scenario_cols(i)
+        ok_range = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, row, row)
+
+        if not ok_range:
+            return False, "Nein", f"Liquidität für Szenarien ist nicht vollständig ausgefüllt. Szenario {i+1} (Spalten {start_col}-{end_col}) hat fehlende Werte."
+
+    return True, "Ja", "Liquidität für alle Szenarien ist vollständig für drei Jahre ausgefüllt"
 
 
 ##########################
