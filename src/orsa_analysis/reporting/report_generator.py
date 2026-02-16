@@ -287,11 +287,19 @@ class ReportGenerator:
     def _apply_institut_metadata(self, institute_id: str) -> bool:
         """Apply institut metadata to workbook cells.
         
-        Writes institute metadata to cells on the Auswertung sheet:
+        Writes institute metadata to cells on both Auswertung and Daten sheets:
+        
+        Auswertung sheet:
         - E2: FinmaObjektName
         - E3: FinmaID
         - E4: Aufsichtskategorie
         - E6: MitarbeiterName
+        
+        Daten sheet:
+        - C4: FinmaObjektName (Versicherungsunternehmen)
+        - C5: FinmaID (FINMA-ID)
+        - C6: Aufsichtskategorie
+        - C7: MitarbeiterName (FINMA-Sachbearbeiter)
         
         Args:
             institute_id: Institute identifier (FinmaID)
@@ -310,23 +318,31 @@ class ReportGenerator:
                 )
                 return False
             
-            # Define the target sheet and cell mappings
-            sheet_name = "Auswertung"
-            metadata_mappings = [
+            # Define the target sheets and cell mappings
+            # Auswertung sheet mappings (original)
+            auswertung_mappings = [
                 ("E2", "FinmaObjektName", "FinmaObjektName"),
                 ("E3", "FINMAID", "FinmaID"),
                 ("E4", "Aufsichtskategorie", "Aufsichtskategorie"),
                 ("E6", "MitarbeiterName", "MitarbeiterName")
             ]
             
-            # Write each metadata field to its corresponding cell
+            # Daten sheet mappings (new)
+            daten_mappings = [
+                ("C4", "FinmaObjektName", "Versicherungsunternehmen"),
+                ("C5", "FINMAID", "FINMA-ID"),
+                ("C6", "Aufsichtskategorie", "Aufsichtskategorie"),
+                ("C7", "MitarbeiterName", "FINMA-Sachbearbeiter")
+            ]
+            
+            # Write metadata to Auswertung sheet
             success_count = 0
-            for cell_address, field_key, field_name in metadata_mappings:
+            for cell_address, field_key, field_name in auswertung_mappings:
                 value = institut_metadata.get(field_key)
                 
                 if value is not None:
                     success = self.template_manager.write_cell_value(
-                        sheet_name,
+                        "Auswertung",
                         cell_address,
                         value
                     )
@@ -335,17 +351,41 @@ class ReportGenerator:
                         success_count += 1
                         logger.debug(
                             f"Applied {field_name} -> "
-                            f"{sheet_name}!{cell_address} = {value}"
+                            f"Auswertung!{cell_address} = {value}"
                         )
                     else:
                         logger.warning(
-                            f"Failed to write {field_name} to {sheet_name}!{cell_address}"
+                            f"Failed to write {field_name} to Auswertung!{cell_address}"
                         )
                 else:
                     logger.warning(f"{field_name} is None for institute {institute_id}")
             
-            logger.info(f"Applied {success_count}/4 institut metadata fields to report")
-            return success_count == 4
+            # Write metadata to Daten sheet
+            for cell_address, field_key, field_name in daten_mappings:
+                value = institut_metadata.get(field_key)
+                
+                if value is not None:
+                    success = self.template_manager.write_cell_value(
+                        "Daten",
+                        cell_address,
+                        value
+                    )
+                    
+                    if success:
+                        success_count += 1
+                        logger.debug(
+                            f"Applied {field_name} -> "
+                            f"Daten!{cell_address} = {value}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Failed to write {field_name} to Daten!{cell_address}"
+                        )
+                else:
+                    logger.warning(f"{field_name} is None for institute {institute_id}")
+            
+            logger.info(f"Applied {success_count}/8 institut metadata fields to report (Auswertung + Daten)")
+            return success_count == 8
             
         except Exception as e:
             logger.error(f"Failed to apply institut metadata: {e}")
