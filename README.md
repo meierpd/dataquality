@@ -160,6 +160,12 @@ orsa-qc --berichtsjahr 2026 --reports-only --institute 10001 --upload
 - Files are **skipped if they already exist** on SharePoint (prevents accidental overwrites)
 - Use `--upload` to enable SharePoint upload (disabled by default)
 
+**Error Handling:**
+- If a report generation fails for one institute (e.g., due to permission errors or file locks), **other reports will continue to be generated**
+- Failed reports are logged with detailed error information
+- A summary at the end shows successful and failed report counts
+- Upload failures do not stop report generation - only the upload is skipped
+
 ### Reprocessing
 
 Force reprocessing ignores the cache and recalculates all quality checks:

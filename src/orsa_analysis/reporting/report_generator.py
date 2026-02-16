@@ -111,7 +111,14 @@ class ReportGenerator:
         self._apply_institut_metadata(institute_id)
         
         # Save output file
-        self.template_manager.save_workbook(output_path)
+        try:
+            self.template_manager.save_workbook(output_path)
+            logger.info(f"Report saved successfully: {output_path}")
+        except Exception as e:
+            logger.error(f"Failed to save report to {output_path}: {e}")
+            # Clean up before re-raising
+            self.template_manager.close()
+            raise
         
         # Clean up
         self.template_manager.close()
@@ -120,7 +127,11 @@ class ReportGenerator:
         
         # Upload to SharePoint if enabled
         if self.enable_upload and self.uploader:
-            self._upload_report(institute_id, output_path)
+            try:
+                self._upload_report(institute_id, output_path)
+            except Exception as e:
+                logger.error(f"Failed to upload report for {institute_id}: {e}", exc_info=True)
+                # Don't fail the entire report generation if upload fails
         
         return output_path
     
@@ -141,7 +152,7 @@ class ReportGenerator:
         logger.info(f"Generating reports for {len(institutes)} institutes")
         
         generated_reports = []
-        failed_count = 0
+        failed_reports = []
         
         for institute_id in institutes:
             logger.info(f"Processing {institute_id}...")
@@ -151,20 +162,47 @@ class ReportGenerator:
             if source_files and institute_id in source_files:
                 source_path = source_files[institute_id]
             
-            # Generate report
-            report_path = self.generate_report(
-                institute_id, 
-                source_path
-            )
-            
-            if report_path:
-                generated_reports.append(report_path)
-            else:
-                failed_count += 1
+            # Generate report with error handling
+            try:
+                report_path = self.generate_report(
+                    institute_id, 
+                    source_path
+                )
+                
+                if report_path:
+                    generated_reports.append(report_path)
+                    logger.info(f"✓ Report generated successfully for {institute_id}")
+                else:
+                    failed_reports.append({
+                        'institute_id': institute_id,
+                        'error': 'Report generation returned None'
+                    })
+                    logger.warning(f"✗ Report generation returned None for {institute_id}")
+            except Exception as e:
+                failed_reports.append({
+                    'institute_id': institute_id,
+                    'error': str(e),
+                    'error_type': type(e).__name__
+                })
+                logger.error(
+                    f"✗ Report generation failed for {institute_id}: {type(e).__name__}: {e}",
+                    exc_info=True
+                )
         
+        # Log comprehensive summary
+        logger.info("=" * 60)
         logger.info(f"Report generation complete:")
-        logger.info(f"  Generated: {len(generated_reports)}")
-        logger.info(f"  Failed/Skipped: {failed_count}")
+        logger.info(f"  Total institutes: {len(institutes)}")
+        logger.info(f"  Successfully generated: {len(generated_reports)}")
+        logger.info(f"  Failed: {len(failed_reports)}")
+        
+        if failed_reports:
+            logger.warning("Failed reports:")
+            for failed in failed_reports:
+                logger.warning(
+                    f"  - {failed['institute_id']}: {failed.get('error_type', 'Error')}: {failed['error']}"
+                )
+        logger.info("=" * 60)
         
         return generated_reports
     
