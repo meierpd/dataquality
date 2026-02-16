@@ -1260,13 +1260,13 @@ def check_orsa_version(wb: Workbook) -> Tuple[bool, str, str]:
 def check_count_number_mitigating_measures_other_effect(wb: Workbook) -> Tuple[bool, str, str]:
     """Count (5) entries in columns E and G (rows 9-38) in Massnahmen sheet.
     
-    Returns the count as "count_E / count_G"
+    Returns the total count (sum of E and G)
     """
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Massnahmen")
     
     if sheet is None:
-        return True, "0 / 0", "Anzahl Massnahmen mit anderer Wirkung: 0 / 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
+        return True, "0", "Anzahl Massnahmen mit anderer Wirkung: 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
     
     # Count (5) in column E (rows 9-38)
     count_e = 0
@@ -1282,20 +1282,21 @@ def check_count_number_mitigating_measures_other_effect(wb: Workbook) -> Tuple[b
         if value.startswith("(5)"):
             count_g += 1
     
-    result_str = f"{count_e} / {count_g}"
-    return True, result_str, f"Anzahl Massnahmen mit anderer Wirkung (Spalte E / Spalte G): {result_str}"
+    total = count_e + count_g
+    result_str = str(total)
+    return True, result_str, f"Anzahl Massnahmen mit anderer Wirkung (Spalte E: {count_e}, Spalte G: {count_g}, Total: {total})"
 
 
 def check_count_number_mitigating_measures_risk_accepted(wb: Workbook) -> Tuple[bool, str, str]:
     """Count (6) entries in columns E and G (rows 9-38) in Massnahmen sheet.
     
-    Returns the count as "count_E / count_G"
+    Returns the total count (sum of E and G)
     """
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Massnahmen")
     
     if sheet is None:
-        return True, "0 / 0", "Anzahl akzeptierter Risiken: 0 / 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
+        return True, "0", "Anzahl akzeptierter Risiken: 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
     
     # Count (6) in column E (rows 9-38)
     count_e = 0
@@ -1311,8 +1312,9 @@ def check_count_number_mitigating_measures_risk_accepted(wb: Workbook) -> Tuple[
         if value.startswith("(6)"):
             count_g += 1
     
-    result_str = f"{count_e} / {count_g}"
-    return True, result_str, f"Anzahl akzeptierter Risiken (Spalte E / Spalte G): {result_str}"
+    total = count_e + count_g
+    result_str = str(total)
+    return True, result_str, f"Anzahl akzeptierter Risiken (Spalte E: {count_e}, Spalte G: {count_g}, Total: {total})"
 
 
 def check_count_number_other_measures_other_effect(wb: Workbook) -> Tuple[bool, str, str]:
