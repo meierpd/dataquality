@@ -193,7 +193,7 @@ def check_data_recency_szenarien(wb: Workbook) -> Tuple[bool, str, str]:
 def check_board_approved_orsa(wb: Workbook) -> Tuple[bool, str, str]:
     # Check if this is a Zweigniederlassungs version
     if _is_zweigniederlassungs_version(wb):
-        return False, "kein Rating", "Kein Rating da es sich um eine Zweigniederlassung handelt"
+        return False, "Kein Rating", "Kein Rating da es sich um eine Zweigniederlassung handelt"
     
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Allgem. Angaben")
@@ -1192,7 +1192,7 @@ def check_count_longterm_risks(wb: Workbook) -> Tuple[bool, str, str]:
 def check_treatment_of_qual_risks(wb: Workbook) -> Tuple[bool, str, str]:
     # Check if this is a Zweigniederlassungs version
     if _is_zweigniederlassungs_version(wb):
-        return False, "Kein Rating", "Kein Rating da es sich um eine Zweigniederlassung handelt"
+        return False, "", "Zweigniederlassung - dieser Check ist nicht anwendbar"
     
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Qual. & langfr. Risiken")
@@ -1202,7 +1202,7 @@ def check_treatment_of_qual_risks(wb: Workbook) -> Tuple[bool, str, str]:
 
     value = str(sheet["E4"].value or "")
     
-    # Extract the value and return it (e.g., "(1)", "(2)", etc.)
+    # Extract the value and return it (e.g., "(1)", "(2)", "(3)", "(4)", "(5)")
     # Return True if we found something, False if empty
     if value and value.strip():
         return True, value, f"Behandlung qualitativer Risiken: {value}"
