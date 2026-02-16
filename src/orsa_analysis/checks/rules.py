@@ -1192,7 +1192,7 @@ def check_count_longterm_risks(wb: Workbook) -> Tuple[bool, str, str]:
 def check_treatment_of_qual_risks(wb: Workbook) -> Tuple[bool, str, str]:
     # Check if this is a Zweigniederlassungs version
     if _is_zweigniederlassungs_version(wb):
-        return False, "", "Zweigniederlassung - dieser Check ist nicht anwendbar"
+        return False, "Kein Rating", "Kein Rating da es sich um eine Zweigniederlassung handelt"
     
     mapper = SheetNameMapper(wb)
     sheet = mapper.get_sheet("Qual. & langfr. Risiken")
