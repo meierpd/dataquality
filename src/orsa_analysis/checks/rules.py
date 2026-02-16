@@ -22,6 +22,44 @@ STR_GUT = "gut"
 STR_UNGENUEGEND = "ungenügend"
 
 ### Allgemeine Angaben
+ 
+def _is_zweigniederlassungs_version(wb: Workbook) -> bool:
+    """Detect if this is a Zweigniederlassungs version of the Excel file.
+    
+    The zweigniederlassungs_version has the sheet 'Ergebnisse' (and language equivalents),
+    whereas the standard version has 'Ergebnisse_IFRS' and 'Ergebnisse_AVO-FINMA'.
+    
+    Args:
+        wb: Workbook to check
+        
+    Returns:
+        True if this is a Zweigniederlassungs version, False otherwise
+    """
+    sheet_names = set(wb.sheetnames)
+    
+    # Check for 'Ergebnisse' in all supported languages
+    zweigniederlassungs_sheets = {
+        "Ergebnisse",  # German
+        "Results",      # English
+        "Résultats"    # French
+    }
+    
+    return any(name in sheet_names for name in zweigniederlassungs_sheets)
+
+def check_orsa_version(wb: Workbook) -> Tuple[bool, str, str]:
+    """Check if this is a Zweigniederlassungs or Sitzgesellschaft version.
+    
+    Returns:
+        - outcome_bool: True if Sitzgesellschaft, False if Zweigniederlassung
+        - outcome_str: 'Zweigniederlassung' or 'Sitzgesellschaft'
+        - description: Description of the version detected
+    """
+    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
+    
+    if is_zweigniederlassung:
+        return False, "Zweigniederlassung", "ORSA-Version: Zweigniederlassung"
+    else:
+        return True, "Sitzgesellschaft", "ORSA-Version: Sitzgesellschaft"
 
 def check_responsible_person(wb: Workbook) -> Tuple[bool, str, str]:
     """
@@ -494,6 +532,94 @@ def check_any_nonmitigating_measures(wb: Workbook) -> Tuple[bool, str, str]:
         return False, outcome_str, f"Anzahl nicht risikobegrenzender Massnahmen (Kategorie (5)): {count_str}. Diese Massnahmen sollten überprüft werden."
 
 
+
+def check_count_number_mitigating_measures_other_effect(wb: Workbook) -> Tuple[bool, str, str]:
+    """Count (5) entries in columns E and G (rows 9-38) in Massnahmen sheet.
+    
+    Returns the total count (sum of E and G)
+    """
+    mapper = SheetNameMapper(wb)
+    sheet = mapper.get_sheet("Massnahmen")
+    
+    if sheet is None:
+        return True, "0", "Anzahl Massnahmen mit anderer Wirkung: 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
+    
+    # Count (5) in column E (rows 9-38)
+    count_e = 0
+    for row in range(9, 39):
+        value = str(sheet[f"E{row}"].value or "")
+        if value.startswith("(5)"):
+            count_e += 1
+    
+    # Count (5) in column G (rows 9-38)
+    count_g = 0
+    for row in range(9, 39):
+        value = str(sheet[f"G{row}"].value or "")
+        if value.startswith("(5)"):
+            count_g += 1
+    
+    total = count_e + count_g
+    result_str = str(total)
+    return True, result_str, f"Anzahl Massnahmen mit anderer Wirkung (Spalte E: {count_e}, Spalte G: {count_g}, Total: {total})"
+
+
+def check_count_number_mitigating_measures_risk_accepted(wb: Workbook) -> Tuple[bool, str, str]:
+    """Count (6) entries in columns E and G (rows 9-38) in Massnahmen sheet.
+    
+    Returns the total count (sum of E and G)
+    """
+    mapper = SheetNameMapper(wb)
+    sheet = mapper.get_sheet("Massnahmen")
+    
+    if sheet is None:
+        return True, "0", "Anzahl akzeptierter Risiken: 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
+    
+    # Count (6) in column E (rows 9-38)
+    count_e = 0
+    for row in range(9, 39):
+        value = str(sheet[f"E{row}"].value or "")
+        if value.startswith("(6)"):
+            count_e += 1
+    
+    # Count (6) in column G (rows 9-38)
+    count_g = 0
+    for row in range(9, 39):
+        value = str(sheet[f"G{row}"].value or "")
+        if value.startswith("(6)"):
+            count_g += 1
+    
+    total = count_e + count_g
+    result_str = str(total)
+    return True, result_str, f"Anzahl akzeptierter Risiken (Spalte E: {count_e}, Spalte G: {count_g}, Total: {total})"
+
+
+def check_count_number_other_measures_other_effect(wb: Workbook) -> Tuple[bool, str, str]:
+    """Count (4) entries in column F rows 44-53 and 57-66 in Massnahmen sheet.
+    
+    Returns the total count.
+    """
+    mapper = SheetNameMapper(wb)
+    sheet = mapper.get_sheet("Massnahmen")
+    
+    if sheet is None:
+        return True, "0", "Anzahl sonstiger Massnahmen mit anderer Wirkung: 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
+    
+    count = 0
+    # Count (4) in column F rows 44-53
+    for row in range(44, 54):
+        value = str(sheet[f"F{row}"].value or "")
+        if value.startswith("(4)"):
+            count += 1
+    
+    # Count (4) in column F rows 57-66
+    for row in range(57, 67):
+        value = str(sheet[f"F{row}"].value or "")
+        if value.startswith("(4)"):
+            count += 1
+    
+    count_str = str(count)
+    return True, count_str, f"Anzahl sonstiger Massnahmen mit anderer Wirkung: {count_str}"
+
 #### Szenarien
 def _scenario_type_cells() -> list[str]:
     return [
@@ -747,30 +873,6 @@ def _is_any_filled(sheet, cells: list[str]) -> bool:
         if v is not None and str(v).strip() != "":
             return True
     return False
-
-
-def _is_zweigniederlassungs_version(wb: Workbook) -> bool:
-    """Detect if this is a Zweigniederlassungs version of the Excel file.
-    
-    The zweigniederlassungs_version has the sheet 'Ergebnisse' (and language equivalents),
-    whereas the standard version has 'Ergebnisse_IFRS' and 'Ergebnisse_AVO-FINMA'.
-    
-    Args:
-        wb: Workbook to check
-        
-    Returns:
-        True if this is a Zweigniederlassungs version, False otherwise
-    """
-    sheet_names = set(wb.sheetnames)
-    
-    # Check for 'Ergebnisse' in all supported languages
-    zweigniederlassungs_sheets = {
-        "Ergebnisse",  # German
-        "Results",      # English
-        "Résultats"    # French
-    }
-    
-    return any(name in sheet_names for name in zweigniederlassungs_sheets)
   
 def _is_avo_finma_sheet(sheet_title: str) -> bool:
     """Check if a sheet title corresponds to the AVO-FINMA results sheet.
@@ -972,6 +1074,37 @@ def check_other_perspective_filled_three_years(wb: Workbook) -> Tuple[bool, str,
     return True, "OK", "Andere Perspektive ist konsistent ausgefüllt (alle Zeilen sind entweder komplett für drei Jahre ausgefüllt oder komplett leer)"
 
 
+def check_liquidity_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
+    """Check if liquidity is filled for three years (base case).
+    
+    For AVO-FINMA: line 86
+    For IFRS: line 88
+    For Zweigniederlassung: line 66
+    """
+    ok, outcome_str, details_str, sheet = _get_filled_results_sheet(wb)
+    if not ok:
+        return False, outcome_str, details_str
+
+    # Check if Zweigniederlassungs version
+    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
+    is_avo = _is_avo_finma_sheet(sheet.title)
+
+    if is_zweigniederlassung:
+        # Zweigniederlassungs version: line 66
+        ok = _range_has_no_empty_cells(sheet, "E", "G", 66, 66)
+    elif is_avo:
+        # AVO-FINMA: line 86
+        ok = _range_has_no_empty_cells(sheet, "E", "G", 86, 86)
+    else:
+        # IFRS: line 88
+        ok = _range_has_no_empty_cells(sheet, "E", "G", 88, 88)
+
+    if ok:
+        return True, "Ja", "Liquidität ist vollständig für drei Jahre ausgefüllt"
+
+    return False, "Nein", "Liquidität ist nicht vollständig für drei Jahre ausgefüllt"
+
+
 
 def _range_has_no_empty_cells_cols(sheet, start_col: str, end_col: str, start_row: int, end_row: int) -> bool:
     c1 = column_index_from_string(start_col)
@@ -1168,6 +1301,43 @@ def check_scenarios_other_perspective_filled_three_years(wb: Workbook) -> Tuple[
 
     return True, "OK", "Andere Perspektive für alle Szenarien ist konsistent ausgefüllt (alle Zeilen sind entweder komplett für drei Jahre ausgefüllt oder komplett leer)"
 
+
+def check_scenarios_liquidity_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
+    """Check if scenario liquidity is filled for three years.
+    
+    For AVO-FINMA: line 86
+    For IFRS: line 88
+    For Zweigniederlassung: line 66
+    """
+    ok, outcome_str, details_str, results_sheet = _get_filled_results_sheet(wb)
+    if not ok:
+        return False, outcome_str, details_str
+
+    mapper = SheetNameMapper(wb)
+    szenarien_sheet = mapper.get_sheet("Szenarien")
+
+    # Check if Zweigniederlassungs version
+    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
+    is_avo = _is_avo_finma_sheet(results_sheet.title)
+
+    if is_zweigniederlassung:
+        row = 66
+    else:
+        row = 86 if is_avo else 88
+
+    for i, type_addr in enumerate(_scenario_type_cells()):
+        if (szenarien_sheet[type_addr].value or "") == "":
+            continue
+
+        start_col, end_col = _scenario_cols(i)
+        ok_range = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, row, row)
+
+        if not ok_range:
+            return False, "Nein", f"Liquidität für Szenarien ist nicht vollständig ausgefüllt. Szenario {i+1} (Spalten {start_col}-{end_col}) hat fehlende Werte."
+
+    return True, "Ja", "Liquidität für alle Szenarien ist vollständig für drei Jahre ausgefüllt"
+
+
 ###### Qual. & langfr. Risiken
 
 def check_count_longterm_risks(wb: Workbook) -> Tuple[bool, str, str]:
@@ -1238,178 +1408,6 @@ def check_orsa_dokumentation_sufficient(wb: Workbook) -> Tuple[bool, str, str]:
 
     return result_str == "genügend", result_str, desc
 
-
-#### New Checks
-
-def check_orsa_version(wb: Workbook) -> Tuple[bool, str, str]:
-    """Check if this is a Zweigniederlassungs or Sitzgesellschaft version.
-    
-    Returns:
-        - outcome_bool: True if Sitzgesellschaft, False if Zweigniederlassung
-        - outcome_str: 'Zweigniederlassung' or 'Sitzgesellschaft'
-        - description: Description of the version detected
-    """
-    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
-    
-    if is_zweigniederlassung:
-        return False, "Zweigniederlassung", "ORSA-Version: Zweigniederlassung"
-    else:
-        return True, "Sitzgesellschaft", "ORSA-Version: Sitzgesellschaft"
-
-
-def check_count_number_mitigating_measures_other_effect(wb: Workbook) -> Tuple[bool, str, str]:
-    """Count (5) entries in columns E and G (rows 9-38) in Massnahmen sheet.
-    
-    Returns the total count (sum of E and G)
-    """
-    mapper = SheetNameMapper(wb)
-    sheet = mapper.get_sheet("Massnahmen")
-    
-    if sheet is None:
-        return True, "0", "Anzahl Massnahmen mit anderer Wirkung: 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
-    
-    # Count (5) in column E (rows 9-38)
-    count_e = 0
-    for row in range(9, 39):
-        value = str(sheet[f"E{row}"].value or "")
-        if value.startswith("(5)"):
-            count_e += 1
-    
-    # Count (5) in column G (rows 9-38)
-    count_g = 0
-    for row in range(9, 39):
-        value = str(sheet[f"G{row}"].value or "")
-        if value.startswith("(5)"):
-            count_g += 1
-    
-    total = count_e + count_g
-    result_str = str(total)
-    return True, result_str, f"Anzahl Massnahmen mit anderer Wirkung (Spalte E: {count_e}, Spalte G: {count_g}, Total: {total})"
-
-
-def check_count_number_mitigating_measures_risk_accepted(wb: Workbook) -> Tuple[bool, str, str]:
-    """Count (6) entries in columns E and G (rows 9-38) in Massnahmen sheet.
-    
-    Returns the total count (sum of E and G)
-    """
-    mapper = SheetNameMapper(wb)
-    sheet = mapper.get_sheet("Massnahmen")
-    
-    if sheet is None:
-        return True, "0", "Anzahl akzeptierter Risiken: 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
-    
-    # Count (6) in column E (rows 9-38)
-    count_e = 0
-    for row in range(9, 39):
-        value = str(sheet[f"E{row}"].value or "")
-        if value.startswith("(6)"):
-            count_e += 1
-    
-    # Count (6) in column G (rows 9-38)
-    count_g = 0
-    for row in range(9, 39):
-        value = str(sheet[f"G{row}"].value or "")
-        if value.startswith("(6)"):
-            count_g += 1
-    
-    total = count_e + count_g
-    result_str = str(total)
-    return True, result_str, f"Anzahl akzeptierter Risiken (Spalte E: {count_e}, Spalte G: {count_g}, Total: {total})"
-
-
-def check_count_number_other_measures_other_effect(wb: Workbook) -> Tuple[bool, str, str]:
-    """Count (4) entries in column F rows 44-53 and 57-66 in Massnahmen sheet.
-    
-    Returns the total count.
-    """
-    mapper = SheetNameMapper(wb)
-    sheet = mapper.get_sheet("Massnahmen")
-    
-    if sheet is None:
-        return True, "0", "Anzahl sonstiger Massnahmen mit anderer Wirkung: 0 (Tabellenblatt 'Massnahmen' nicht gefunden)"
-    
-    count = 0
-    # Count (4) in column F rows 44-53
-    for row in range(44, 54):
-        value = str(sheet[f"F{row}"].value or "")
-        if value.startswith("(4)"):
-            count += 1
-    
-    # Count (4) in column F rows 57-66
-    for row in range(57, 67):
-        value = str(sheet[f"F{row}"].value or "")
-        if value.startswith("(4)"):
-            count += 1
-    
-    count_str = str(count)
-    return True, count_str, f"Anzahl sonstiger Massnahmen mit anderer Wirkung: {count_str}"
-
-
-def check_liquidity_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
-    """Check if liquidity is filled for three years (base case).
-    
-    For AVO-FINMA: line 86
-    For IFRS: line 88
-    For Zweigniederlassung: line 66
-    """
-    ok, outcome_str, details_str, sheet = _get_filled_results_sheet(wb)
-    if not ok:
-        return False, outcome_str, details_str
-
-    # Check if Zweigniederlassungs version
-    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
-    is_avo = _is_avo_finma_sheet(sheet.title)
-
-    if is_zweigniederlassung:
-        # Zweigniederlassungs version: line 66
-        ok = _range_has_no_empty_cells(sheet, "E", "G", 66, 66)
-    elif is_avo:
-        # AVO-FINMA: line 86
-        ok = _range_has_no_empty_cells(sheet, "E", "G", 86, 86)
-    else:
-        # IFRS: line 88
-        ok = _range_has_no_empty_cells(sheet, "E", "G", 88, 88)
-
-    if ok:
-        return True, "Ja", "Liquidität ist vollständig für drei Jahre ausgefüllt"
-
-    return False, "Nein", "Liquidität ist nicht vollständig für drei Jahre ausgefüllt"
-
-
-def check_scenarios_liquidity_filled_three_years(wb: Workbook) -> Tuple[bool, str, str]:
-    """Check if scenario liquidity is filled for three years.
-    
-    For AVO-FINMA: line 86
-    For IFRS: line 88
-    For Zweigniederlassung: line 66
-    """
-    ok, outcome_str, details_str, results_sheet = _get_filled_results_sheet(wb)
-    if not ok:
-        return False, outcome_str, details_str
-
-    mapper = SheetNameMapper(wb)
-    szenarien_sheet = mapper.get_sheet("Szenarien")
-
-    # Check if Zweigniederlassungs version
-    is_zweigniederlassung = _is_zweigniederlassungs_version(wb)
-    is_avo = _is_avo_finma_sheet(results_sheet.title)
-
-    if is_zweigniederlassung:
-        row = 66
-    else:
-        row = 86 if is_avo else 88
-
-    for i, type_addr in enumerate(_scenario_type_cells()):
-        if (szenarien_sheet[type_addr].value or "") == "":
-            continue
-
-        start_col, end_col = _scenario_cols(i)
-        ok_range = _range_has_no_empty_cells_cols(results_sheet, start_col, end_col, row, row)
-
-        if not ok_range:
-            return False, "Nein", f"Liquidität für Szenarien ist nicht vollständig ausgefüllt. Szenario {i+1} (Spalten {start_col}-{end_col}) hat fehlende Werte."
-
-    return True, "Ja", "Liquidität für alle Szenarien ist vollständig für drei Jahre ausgefüllt"
 
 
 ##########################
