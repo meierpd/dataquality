@@ -202,10 +202,8 @@ def check_board_approved_orsa(wb: Workbook) -> Tuple[bool, str, str]:
         return False, STR_UNGENUEGEND, "Das Tabellenblatt 'Allgem. Angaben' wurde in der Arbeitsmappe nicht gefunden"
 
     value_who_approved = sheet["C18"].value or ""
-    is_approved_through_board = value_who_approved in {
-        "(1) gesamter VR",
-        "(2) ein VR-Ausschuss",
-    }
+    is_approved_through_board = value_who_approved.startswith("(1)") or value_who_approved.startswith("(2)")
+
 
     if is_approved_through_board:
         return True, STR_GUT, f"ORSA wurde durch den Verwaltungsrat genehmigt: {value_who_approved}"
@@ -385,12 +383,11 @@ def check_count_potential_other_measures(wb: Workbook) -> Tuple[bool, str, str]:
     count_str = str(count)
     return True, count_str, f"Anzahl potenzieller sonstiger Massnahmen: {count_str}"
 
-
 def check_risks_are_all_mitigated(wb: Workbook) -> Tuple[bool, str, str]:
     mapper = SheetNameMapper(wb)
     sheet_risiken = mapper.get_sheet("Risiken")
     sheet_massnahmen = mapper.get_sheet("Massnahmen")
-    
+
     if sheet_risiken is None or sheet_massnahmen is None:
         return False, "NOK", "Tabellenblatt 'Risiken' oder 'Massnahmen' nicht gefunden"
 
@@ -407,6 +404,10 @@ def check_risks_are_all_mitigated(wb: Workbook) -> Tuple[bool, str, str]:
 
     for row in range(9, 39):
         value = sheet_massnahmen[f"C{row}"].value or ""
+        right_cell = sheet_massnahmen[f"D{row}"].value
+        if right_cell is None or str(right_cell).strip() == "":
+            continue
+
         m = risk_id_re.match(str(value))
         if m:
             mitigated_ids.add(m.group(1))
@@ -987,7 +988,7 @@ def check_scenarios_sst_filled_three_years(wb: Workbook) -> Tuple[bool, str, str
     szenarien_sheet = mapper.get_sheet("Szenarien")
 
     is_avo = _is_avo_finma_sheet(results_sheet.title)
-    
+
     for i, type_addr in enumerate(_scenario_type_cells()):
         if (szenarien_sheet[type_addr].value or "") == "":
             continue
@@ -1172,21 +1173,21 @@ def check_orsa_dokumentation_sufficient(wb: Workbook) -> Tuple[bool, str, str]:
 
     if any(v.startswith("(3)") for v in values):
         result_str = "ungenügend"
-        desc = "ORSA-Dokumentation ist ungenügend: Mindestens ein Kriterium ist mit (3) 'ungenügend' bewertet"
-    elif all(v.startswith("(2)") for v in values if v != "") and any(v != "" for v in values):
-        result_str = "gut"
-        desc = "ORSA-Dokumentation ist gut: Alle ausgefüllten Kriterien sind mit (2) 'gut/ausreichend' bewertet"
+        desc = "ORSA-Dokumentation ist ungenügend: Mindestens ein Kriterium ist mit '(3)  Im ORSA nicht spezifisch behandelt' bewertet"
+    elif all(v.startswith("(2)") for v in values):
+        result_str = "genügend"
+        desc = "ORSA-Dokumentation ist genügend: Alle ausgefüllten Kriterien sind mit '(2) Durchführung und Ergebnisse spezifisch dokumentiert' bewertet"
     elif any(v.startswith("(2)") for v in values):
         result_str = "mangelhaft"
-        desc = "ORSA-Dokumentation ist mangelhaft: Nur teilweise mit (2) 'gut/ausreichend' bewertet, aber kein (3) 'ungenügend' vorhanden"
+        desc = "ORSA-Dokumentation ist mangelhaft: Nur teilweise mit '(2) Durchführung und Ergebnisse spezifisch dokumentiert' bewertet"
     elif all(v.startswith("(1)") for v in values):
-        result_str = "Prüfen"
+        result_str = "mangelhaft"
         desc = "ORSA-Dokumentation ist mangelhaft: Nur mit '(1) Behandelt aber nicht spezifisch dokumentiert' bewertet"
     else:
-        result_str = "Prüfen"
-        desc = "ORSA-Dokumentation muss geprüft werden: Keine gültigen Bewertungen (2)-(3) in den Zeilen 24-30 gefunden"
+        result_str = "ungenügend"
+        desc = "ORSA-Dokumentation muss geprüft werden: Keine gültigen Bewertungen (2)-(3) in den Zeilen C24-30 gefunden"
 
-    return result_str == "gut", result_str, desc
+    return result_str == "genügend", result_str, desc
 
 
 ##########################
