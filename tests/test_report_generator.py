@@ -77,21 +77,16 @@ class TestReportGeneratorInstitutMetadata:
         # Verify database was queried
         mock_db_manager.get_institut_metadata_by_finmaid.assert_called_once_with("INST001")
         
-        # Verify all 8 fields were written (4 to Auswertung + 4 to Daten)
-        assert mock_template_manager.write_cell_value.call_count == 8
+        # Verify all 4 fields were written to Daten sheet only
+        assert mock_template_manager.write_cell_value.call_count == 4
         
         # Verify the correct cells and values
         calls = mock_template_manager.write_cell_value.call_args_list
-        # Auswertung sheet calls
-        assert calls[0][0] == ("Auswertung", "E2", "Test Institute Ltd.")
-        assert calls[1][0] == ("Auswertung", "E3", "INST001")
-        assert calls[2][0] == ("Auswertung", "E4", "Kategorie 1")
-        assert calls[3][0] == ("Auswertung", "E6", "John Doe")
         # Daten sheet calls
-        assert calls[4][0] == ("Daten", "C4", "Test Institute Ltd.")
-        assert calls[5][0] == ("Daten", "C5", "INST001")
-        assert calls[6][0] == ("Daten", "C6", "Kategorie 1")
-        assert calls[7][0] == ("Daten", "C7", "John Doe")
+        assert calls[0][0] == ("Daten", "C4", "Test Institute Ltd.")
+        assert calls[1][0] == ("Daten", "C5", "INST001")
+        assert calls[2][0] == ("Daten", "C6", "Kategorie 1")
+        assert calls[3][0] == ("Daten", "C7", "John Doe")
         
         # Verify success
         assert result is True
@@ -130,8 +125,8 @@ class TestReportGeneratorInstitutMetadata:
         # Call the method
         result = report_generator._apply_institut_metadata("INST001")
         
-        # Verify only 6 fields were written (3 to Auswertung + 3 to Daten, excluding the None value)
-        assert mock_template_manager.write_cell_value.call_count == 6
+        # Verify only 3 fields were written to Daten sheet (excluding the None value)
+        assert mock_template_manager.write_cell_value.call_count == 3
         
         # Verify failure (not all fields written)
         assert result is False
