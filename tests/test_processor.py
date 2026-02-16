@@ -121,8 +121,9 @@ class TestDocumentProcessor:
 
         check_names = [r.check_name for r in results]
         assert len(check_names) > 5
-        assert "has_sheets" in check_names
-        assert "no_empty_sheets" in check_names
+        # Check for some of the actual registered checks
+        assert "check_responsible_person" in check_names
+        assert "check_orsa_version" in check_names
 
     def test_process_file_not_found(self, processor):
         """Test processing a non-existent file."""

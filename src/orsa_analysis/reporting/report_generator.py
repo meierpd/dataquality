@@ -287,11 +287,11 @@ class ReportGenerator:
     def _apply_institut_metadata(self, institute_id: str) -> bool:
         """Apply institut metadata to workbook cells.
         
-        Writes institute metadata to cells on the Auswertung sheet:
-        - E2: FinmaObjektName
-        - E3: FinmaID
-        - E4: Aufsichtskategorie
-        - E6: MitarbeiterName
+        Writes institute metadata to cells on the Daten sheet:
+        - C4: FinmaObjektName (Versicherungsunternehmen)
+        - C5: FinmaID (FINMA-ID)
+        - C6: Aufsichtskategorie
+        - C7: MitarbeiterName (FINMA-Sachbearbeiter)
         
         Args:
             institute_id: Institute identifier (FinmaID)
@@ -310,23 +310,22 @@ class ReportGenerator:
                 )
                 return False
             
-            # Define the target sheet and cell mappings
-            sheet_name = "Auswertung"
-            metadata_mappings = [
-                ("E2", "FinmaObjektName", "FinmaObjektName"),
-                ("E3", "FINMAID", "FinmaID"),
-                ("E4", "Aufsichtskategorie", "Aufsichtskategorie"),
-                ("E6", "MitarbeiterName", "MitarbeiterName")
+            # Daten sheet mappings
+            daten_mappings = [
+                ("C4", "FinmaObjektName", "Versicherungsunternehmen"),
+                ("C5", "FINMAID", "FINMA-ID"),
+                ("C6", "Aufsichtskategorie", "Aufsichtskategorie"),
+                ("C7", "MitarbeiterName", "FINMA-Sachbearbeiter")
             ]
             
-            # Write each metadata field to its corresponding cell
+            # Write metadata to Daten sheet
             success_count = 0
-            for cell_address, field_key, field_name in metadata_mappings:
+            for cell_address, field_key, field_name in daten_mappings:
                 value = institut_metadata.get(field_key)
                 
                 if value is not None:
                     success = self.template_manager.write_cell_value(
-                        sheet_name,
+                        "Daten",
                         cell_address,
                         value
                     )
@@ -335,16 +334,16 @@ class ReportGenerator:
                         success_count += 1
                         logger.debug(
                             f"Applied {field_name} -> "
-                            f"{sheet_name}!{cell_address} = {value}"
+                            f"Daten!{cell_address} = {value}"
                         )
                     else:
                         logger.warning(
-                            f"Failed to write {field_name} to {sheet_name}!{cell_address}"
+                            f"Failed to write {field_name} to Daten!{cell_address}"
                         )
                 else:
                     logger.warning(f"{field_name} is None for institute {institute_id}")
             
-            logger.info(f"Applied {success_count}/4 institut metadata fields to report")
+            logger.info(f"Applied {success_count}/4 institut metadata fields to Daten sheet")
             return success_count == 4
             
         except Exception as e:
