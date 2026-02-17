@@ -27,6 +27,7 @@ classifiers = [
 
 dependencies = [
     "openpyxl>=3.1.0",
+    "xlwings>=0.30.0",
     "pandas>=2.0.0",
     "requests>=2.31.0",
     "requests-ntlm>=1.2.0",
@@ -118,6 +119,7 @@ strict_optional = true
 [[tool.mypy.overrides]]
 module = [
     "openpyxl.*",
+    "xlwings.*",
     "requests_ntlm.*",
     "sqlalchemy.*",
     "pymssql.*",
