@@ -1370,12 +1370,20 @@ def check_treatment_of_qual_risks(wb: Workbook) -> Tuple[bool, str, str]:
     if sheet is None:
         return False, "", "Das Tabellenblatt 'Qual. & langfr. Risiken' wurde in der Arbeitsmappe nicht gefunden"
 
-    value = str(sheet["E4"].value or "")
+    full_text = str(sheet["E4"].value or "")
     
-    # Extract the value and return it (e.g., "(1)", "(2)", "(3)", "(4)", "(5)")
-    # Return True if we found something, False if empty
-    if value and value.strip():
-        return True, value, f"Behandlung qualitativer Risiken: {value}"
+    # Extract just the number in parentheses (e.g., "(1)", "(2)", etc.) for the value
+    # Keep the full text for the description
+    if full_text and full_text.strip():
+        # Try to extract number in parentheses at the beginning of the string
+        match = re.match(r'^\((\d+)\)', full_text.strip())
+        if match:
+            # Found a number in parentheses - use just that for the value
+            extracted_value = f"({match.group(1)})"
+            return True, extracted_value, f"Behandlung qualitativer Risiken: {full_text}"
+        else:
+            # No number in parentheses found - return the whole text as value
+            return True, full_text, f"Behandlung qualitativer Risiken: {full_text}"
     else:
         return False, "", "Behandlung qualitativer Risiken: Keine Angabe in E4"
 
